@@ -15,8 +15,6 @@
 
 #include "simdclaujson.h"
 
-//#include "ClauText.h" 
-
 #include "smart_ptr.h"
 
 
@@ -118,6 +116,9 @@ namespace wiz {
 		// first object or array
 		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
 			++count;
+			if (ut->get_data_list(i)->get_name().is_key()) {
+				str += ut->get_data_list(i)->get_name().str_val + " : ";
+			}
 			if (ut->get_data_list(i)->is_object()) {
 				str += " { ";
 			}
@@ -140,7 +141,7 @@ namespace wiz {
 		}
 			
 		// second item
-		for (int i = Max(0LL, (long long)(start - ut->get_data_size())); i < ut->get_data2_size() && count < count_limit; ++i) {
+		for (int i = Max(0LL, (long long)(start - ut->get_data_size()) * 2); i < ut->get_data2_size() && count < count_limit; ++i) {
 			++count;
 
 			if (ut->is_object()) {
@@ -248,8 +249,10 @@ class TextFrame : public wxFrame
 private:
 
 protected:
-	wxTextCtrl* m_textCtrl;
-	wxButton* m_button;
+
+	wxStyledTextCtrl* m_code;
+	wxButton* m_code_run_button;
+
 	clau::UserType** now;
 	int* ptr_dataViewListCtrlNo;
 	long long* ptr_position;
@@ -258,20 +261,17 @@ protected:
 
 	// Virtual event handlers, overide them in your derived class
 
-	virtual void m_buttonOnButtonClick(wxCommandEvent& event) { 
-		long long  start = 0;
+	virtual void m_code_run_buttonOnButtonClick(wxCommandEvent& event) {
 
-		//if (2 == *ptr_view_mode) {
-			long long sum = 0;
-			
-			for (int i = 0; i < (*ptr_dataViewListCtrlNo); ++i) {
-				sum += m_dataViewListCtrl[i]->GetItemCount();
-			}
-			sum += (*ptr_position);
-			start = sum;
-		//}
-		
-		m_textCtrl->ChangeValue(Convert(wiz::ToStringEx(*now, start)));
+		try {
+
+
+			//RefreshTable(now);
+		}
+		catch (...) {
+			//	RefreshTable(now);
+				//
+		}
 	}
 
 
@@ -301,11 +301,50 @@ TextFrame::TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
 	wxBoxSizer* bSizer;
 	bSizer = new wxBoxSizer(wxVERTICAL);
 
-	m_textCtrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-	bSizer->Add(m_textCtrl, 10, wxALL | wxEXPAND, 5);
+	m_code = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, wxEmptyString);
+	m_code->SetText(wxString(wxT(
+		"#ClauExplorer (https://github.com/ClauParser/ClauExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
+	m_code->SetUseTabs(true);
+	m_code->SetTabWidth(4);
+	m_code->SetIndent(4);
+	m_code->SetTabIndents(true);
+	m_code->SetBackSpaceUnIndents(true);
+	m_code->SetViewEOL(false);
+	m_code->SetViewWhiteSpace(false);
+	m_code->SetMarginWidth(2, 0);
+	m_code->SetIndentationGuides(true);
+	m_code->SetMarginType(1, wxSTC_MARGIN_SYMBOL);
+	m_code->SetMarginMask(1, wxSTC_MASK_FOLDERS);
+	m_code->SetMarginWidth(1, 16);
+	m_code->SetMarginSensitive(1, true);
+	m_code->SetProperty(wxT("fold"), wxT("1"));
+	m_code->SetFoldFlags(wxSTC_FOLDFLAG_LINEBEFORE_CONTRACTED | wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
+	m_code->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+	m_code->SetMarginWidth(0, m_code->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("_99999")));
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS);
+	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDER, wxColour(wxT("BLACK")));
+	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDER, wxColour(wxT("WHITE")));
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS);
+	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEROPEN, wxColour(wxT("BLACK")));
+	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEROPEN, wxColour(wxT("WHITE")));
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_EMPTY);
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUS);
+	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEREND, wxColour(wxT("BLACK")));
+	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEREND, wxColour(wxT("WHITE")));
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUS);
+	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEROPENMID, wxColour(wxT("BLACK")));
+	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEROPENMID, wxColour(wxT("WHITE")));
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_EMPTY);
+	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_EMPTY);
+	m_code->SetSelBackground(true, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT));
+	m_code->SetSelForeground(true, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
 
-	m_button = new wxButton(this, wxID_ANY, wxT("Refresh"), wxDefaultPosition, wxDefaultSize, 0);
-	bSizer->Add(m_button, 1, wxALL | wxEXPAND, 5);
+	bSizer->Add(m_code, 9, wxEXPAND | wxALL, 5);
+
+	//m_code->Hide();
+
+	m_code_run_button = new wxButton(this, wxID_ANY, wxT("Run"), wxDefaultPosition, wxDefaultSize, 0);
+	bSizer->Add(m_code_run_button, 1, wxALL | wxEXPAND, 5);
 
 
 	this->SetSizer(bSizer);
@@ -314,30 +353,16 @@ TextFrame::TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
 	this->Centre(wxBOTH);
 
 	// Connect Events
-	m_button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_buttonOnButtonClick), NULL, this);
 
-	long long  start = 0;
-
-	{
-		long long sum = 0;
-
-		for (int i = 0; i < (*ptr_dataViewListCtrlNo); ++i) {
-			sum += m_dataViewListCtrl[i]->GetItemCount();
-		}
-		sum += (*ptr_position);
-		start = sum;
-	}
-
-	m_textCtrl->ChangeValue(Convert(wiz::ToStringEx(*now, start)));
+	m_code_run_button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_code_run_buttonOnButtonClick), NULL, this);
 }
 
 TextFrame::~TextFrame()
 {
 	// Disconnect Events
-	m_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_buttonOnButtonClick), NULL, this);
+	m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_code_run_buttonOnButtonClick), NULL, this);
 
 }
-
 
 class ChangeWindow : public wxDialog
 {
@@ -517,6 +542,39 @@ private:
 
 	std::vector<std::string> dir_vec;
 private:
+	void RefreshText(wiz::SmartPtr<clau::UserType> now) {
+		wxDataViewListCtrl* ctrl[4];
+		ctrl[0] = m_dataViewListCtrl1;
+		ctrl[1] = m_dataViewListCtrl2;
+		ctrl[2] = m_dataViewListCtrl3;
+		ctrl[3] = m_dataViewListCtrl4;
+
+		long long start = 0;
+		long long sum = part.back() * part_size;
+		start = sum;
+
+		textCtrl->ChangeValue(Convert(wiz::ToStringEx(now, start)));
+	}
+
+	void RefreshText2(wiz::SmartPtr<clau::UserType> now) {
+		wxDataViewListCtrl* ctrl[4];
+		ctrl[0] = m_dataViewListCtrl1;
+		ctrl[1] = m_dataViewListCtrl2;
+		ctrl[2] = m_dataViewListCtrl3;
+		ctrl[3] = m_dataViewListCtrl4;
+
+		long long start = 0;
+		long long sum = 0;
+
+		for (int i = 0; i < dataViewListCtrlNo; ++i) {
+			sum += ctrl[i]->GetItemCount();
+		}
+		sum += (position);
+		sum += part.back() * part_size;
+		start = sum;
+
+		textCtrl->ChangeValue(Convert(wiz::ToStringEx(now, start)));
+	}
 
 	void changedEvent() {
 		//m_code_run_result->ChangeValue(wxT("changed"));
@@ -530,6 +588,7 @@ private:
 		part.clear();
 		part.push_back(0);
 
+		RefreshText(now);
 		RefreshTable(now);
 	
 		*changed = false;
@@ -564,6 +623,8 @@ private:
 				}
 			}
 		}
+
+
 	}
 	void AddData(wiz::SmartPtr<clau::UserType> global, int start)
 	{
@@ -740,9 +801,8 @@ private:
 		}
 	}
 protected:
-	wxStyledTextCtrl* m_code;
-	wxButton* m_code_run_button;
-
+	wxTextCtrl* textCtrl;
+	
 	wxMenuBar* menuBar;
 	wxMenu* FileMenu;
 	wxMenu* DoMenu;
@@ -825,7 +885,7 @@ protected:
 			now = global;
 
 			dataViewListCtrlNo = -1;
-			position = -1;
+			position = now->get_data_size() + now->get_data2_size() > 0? 0 : -1;
 
 			run_count = 0;
 
@@ -839,6 +899,7 @@ protected:
 			part.clear();
 			part.push_back(0);
 
+			RefreshText(now);
 			RefreshTable(now);
 
 			SetTitle(wxT("ClauExplorer : ") + _fileName);
@@ -875,7 +936,7 @@ protected:
 		part.clear();
 		part.push_back(0);
 
-
+		RefreshText(now);
 		RefreshTable(now);
 
 		m_code_run_result->ChangeValue(wxT("New Success! : UTF-8 encoding."));
@@ -928,6 +989,7 @@ protected:
 		changeWindow->ShowModal();
 
 		if (now) {
+			RefreshText(now);
 			RefreshTable(now);
 		}
 	}
@@ -956,6 +1018,7 @@ protected:
 		changeWindow->ShowModal();
 
 		if (now) {
+			RefreshText(now);
 			RefreshTable(now);
 		}
 	}
@@ -991,6 +1054,7 @@ protected:
 				now->remove_data2_list((idx - now->get_data_size()));
 			}
 		}
+		RefreshText(now);
 		RefreshTable(now);
 	}
 	virtual void back_buttonOnButtonClick(wxCommandEvent& event) {
@@ -1000,7 +1064,8 @@ protected:
 		}
 		if (now && now->get_parent()) {
 			part.pop_back();
-			
+
+			RefreshText(now->get_parent());
 			RefreshTable(now->get_parent());
 			now = now->get_parent();
 			BackDir();
@@ -1022,6 +1087,7 @@ protected:
 
 			dir_text->ChangeValue(Convert(dir));
 
+			RefreshText(now);
 			RefreshTable(now);
 		}
 	}
@@ -1075,12 +1141,14 @@ protected:
 																					"[" + std::to_string(position + part.back() * part_size)  + "]"), part);
 
 
+			RefreshText(now);
 			RefreshTable(now);
 
 		}
 		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
 			now = now->get_parent();
 			part.pop_back();
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1095,21 +1163,25 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{
+			//	RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
-				dataViewListCtrlNo--;
+				
+				dataViewListCtrlNo--; RefreshText2(now);
 			}
 			else if (WXK_RIGHT == event.GetKeyCode() && dataViewListCtrlNo < 3 && position >= 0 && position < ctrl[dataViewListCtrlNo + 1]->GetItemCount())
 			{
-				dataViewListCtrlNo++;
+				
+				dataViewListCtrlNo++; RefreshText2(now);
 			}
 
 			ctrl[dataViewListCtrlNo]->SelectRow(position);
@@ -1160,12 +1232,13 @@ protected:
 			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 + part.back() * part_size)  + "}" :
 				"[" + std::to_string(position + (length) / 4 + part.back() * part_size)  + "]"), part);
 
-
+			RefreshText(now);
 			RefreshTable(now);
 		}
 		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
 			now = now->get_parent();
 			part.pop_back();
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1180,21 +1253,26 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
 				dataViewListCtrlNo--;
+				RefreshText2(now);
 			}
 			else if (WXK_RIGHT == event.GetKeyCode() && dataViewListCtrlNo < 3 && position >= 0 && position < ctrl[dataViewListCtrlNo + 1]->GetItemCount())
 			{
+				
 				dataViewListCtrlNo++;
+				RefreshText2(now);
 			}
 
 			ctrl[dataViewListCtrlNo]->SelectRow(position);
@@ -1247,13 +1325,15 @@ protected:
 			
 			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "}" :
 				"[" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
-	
+
+			RefreshText(now);
 			RefreshTable(now);
 		}
 		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
 			now = now->get_parent();
 			part.pop_back();
 
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 
@@ -1269,21 +1349,26 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
+				
 				dataViewListCtrlNo--;
+				RefreshText2(now);
 			}
 			else if (WXK_RIGHT == event.GetKeyCode() && dataViewListCtrlNo < 3 && position >= 0 && position < ctrl[dataViewListCtrlNo + 1]->GetItemCount())
 			{
 				dataViewListCtrlNo++;
+				RefreshText2(now);
 			}
 
 			ctrl[dataViewListCtrlNo]->SelectRow(position);
@@ -1335,12 +1420,14 @@ protected:
 			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 3 + part.back() * part_size)  + "}" :
 				"[" + std::to_string(position + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
 
+			RefreshText(now);
 			RefreshTable(now);
 		}
 		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
 			now = now->get_parent();
 			part.pop_back();
 
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 
@@ -1356,21 +1443,25 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{
+				//RefreshText(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{
+				//RefreshText2(now);
 				event.Skip();
 				return;
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
 				dataViewListCtrlNo--;
+				RefreshText2(now);
 			}
 			else if (WXK_RIGHT == event.GetKeyCode() && dataViewListCtrlNo < 3 && position >= 0 && position < ctrl[dataViewListCtrlNo + 1]->GetItemCount())
 			{
 				dataViewListCtrlNo++;
+				RefreshText2(now);
 			}
 
 			ctrl[dataViewListCtrlNo]->SelectRow(position);
@@ -1391,6 +1482,7 @@ protected:
 			if (!part.empty() && length > (part.back() + 1) * part_size) {
 				part.back()++;
 
+				RefreshText(now);
 				RefreshTable(now);
 
 				std::string dir = "";
@@ -1411,6 +1503,7 @@ protected:
 			if (!part.empty() && part.back() >= 1) {
 				part.back()--;
 
+				RefreshText(now);
 				RefreshTable(now);
 
 				std::string dir = "";
@@ -1458,6 +1551,7 @@ protected:
 				"[" + std::to_string(position + (length) / 4 * 0 + part.back() * part_size)  + "]"), part);
 
 
+			RefreshText(now);
 			RefreshTable(now);
 
 		}
@@ -1494,6 +1588,7 @@ protected:
 				"[" + std::to_string(position + (length) / 4 * 1 + part.back() * part_size)  + "]"), part);
 			
 
+			RefreshText(now);
 			RefreshTable(now);
 		}
 	}
@@ -1528,6 +1623,7 @@ protected:
 			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "}" :
 				"[" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
 
+			RefreshText(now);
 			RefreshTable(now);
 
 		}
@@ -1565,6 +1661,7 @@ protected:
 			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length / 4 * 3) + part.back() * part_size)  + "}" :
 				"[" + std::to_string(position + (length / 4 * 3) + part.back() * part_size)  + "]"), part);
 
+			RefreshText(now);
 			RefreshTable(now);
 
 		}
@@ -1578,6 +1675,7 @@ protected:
 		if (now && now->get_parent()) {
 			now = now->get_parent();
 			part.pop_back();
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1589,6 +1687,7 @@ protected:
 		if (now && now->get_parent()) {
 			now = now->get_parent();
 			part.pop_back();
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1600,6 +1699,7 @@ protected:
 		if (now && now->get_parent()) {
 			now = now->get_parent();
 			part.pop_back();
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1612,6 +1712,7 @@ protected:
 			now = now->get_parent();
 			part.pop_back();
 
+			RefreshText(now);
 			RefreshTable(now);
 			BackDir();
 		}
@@ -1624,6 +1725,8 @@ protected:
 		}
 		dataViewListCtrlNo = 0;
 		position = m_dataViewListCtrl1->GetSelectedRow();
+
+		RefreshText2(now);
 	}
 	virtual void m_dataViewListCtrl2OnDataViewListCtrlSelectionchanged(wxDataViewEvent& event) {
 		if (*changed) { changedEvent();
@@ -1631,6 +1734,8 @@ protected:
 		}
 		dataViewListCtrlNo = 1;
 		position = m_dataViewListCtrl2->GetSelectedRow();
+
+		RefreshText2(now);
 	}
 	virtual void m_dataViewListCtrl3OnDataViewListCtrlSelectionchanged(wxDataViewEvent& event) {
 		if (*changed) { changedEvent();
@@ -1638,6 +1743,8 @@ protected:
 		}
 		dataViewListCtrlNo = 2;
 		position = m_dataViewListCtrl3->GetSelectedRow();
+
+		RefreshText2(now);
 	}
 	virtual void m_dataViewListCtrl4OnDataViewListCtrlSelectionchanged(wxDataViewEvent& event) {
 		if (*changed) { changedEvent();
@@ -1645,6 +1752,8 @@ protected:
 		}
 		dataViewListCtrlNo = 3;
 		position = m_dataViewListCtrl4->GetSelectedRow();
+
+		RefreshText2(now);
 	}
 
 	virtual void m_dataViewListCtrl1OnSize(wxSizeEvent& event) {
@@ -1689,6 +1798,7 @@ protected:
 		frame->dir_text->ChangeValue(Convert(dir));
 
 		frame->RefreshTable(frame->now);
+		frame->RefreshText(frame->now);
 
 		frame->SetTitle(GetTitle() + wxT(" : other window"));
 
@@ -1703,26 +1813,7 @@ protected:
 		
 		frame->Show(true);
 	}
-	virtual void m_code_run_buttonOnButtonClick(wxCommandEvent& event) {
-		if (!isMain) { return; }
 
-		if (*changed) { changedEvent();
-			//return;
-		}
-
-
-
-		try {
-
-
-			//RefreshTable(now);
-		}
-		catch (...) {
-		//	RefreshTable(now);
-			//
-		}
-	}
-	
 public:
 
 	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("ClauExplorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
@@ -1880,52 +1971,9 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 	wxBoxSizer* bSizer6;
 	bSizer6 = new wxBoxSizer(wxVERTICAL);
 
-	m_code = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, wxEmptyString);
-	m_code->SetText(wxString(wxT(
-		"#ClauExplorer (https://github.com/ClauParser/ClauExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
-	m_code->SetUseTabs(true);
-	m_code->SetTabWidth(4);
-	m_code->SetIndent(4);
-	m_code->SetTabIndents(true);
-	m_code->SetBackSpaceUnIndents(true);
-	m_code->SetViewEOL(false);
-	m_code->SetViewWhiteSpace(false);
-	m_code->SetMarginWidth(2, 0);
-	m_code->SetIndentationGuides(true);
-	m_code->SetMarginType(1, wxSTC_MARGIN_SYMBOL);
-	m_code->SetMarginMask(1, wxSTC_MASK_FOLDERS);
-	m_code->SetMarginWidth(1, 16);
-	m_code->SetMarginSensitive(1, true);
-	m_code->SetProperty(wxT("fold"), wxT("1"));
-	m_code->SetFoldFlags(wxSTC_FOLDFLAG_LINEBEFORE_CONTRACTED | wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
-	m_code->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-	m_code->SetMarginWidth(0, m_code->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("_99999")));
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS);
-	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDER, wxColour(wxT("BLACK")));
-	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDER, wxColour(wxT("WHITE")));
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS);
-	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEROPEN, wxColour(wxT("BLACK")));
-	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEROPEN, wxColour(wxT("WHITE")));
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_EMPTY);
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUS);
-	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEREND, wxColour(wxT("BLACK")));
-	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEREND, wxColour(wxT("WHITE")));
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUS);
-	m_code->MarkerSetBackground(wxSTC_MARKNUM_FOLDEROPENMID, wxColour(wxT("BLACK")));
-	m_code->MarkerSetForeground(wxSTC_MARKNUM_FOLDEROPENMID, wxColour(wxT("WHITE")));
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_EMPTY);
-	m_code->MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_EMPTY);
-	m_code->SetSelBackground(true, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT));
-	m_code->SetSelForeground(true, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
+	textCtrl = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
 
-	bSizer6->Add(m_code, 9, wxEXPAND | wxALL, 5);
-
-	//m_code->Hide();
-
-	m_code_run_button = new wxButton(this, wxID_ANY, wxT("Run"), wxDefaultPosition, wxDefaultSize, 0);
-	bSizer6->Add(m_code_run_button, 1, wxALL | wxEXPAND, 5);
-
-	//m_code_run_button->Hide();
+	bSizer6->Add(textCtrl, 9, wxEXPAND | wxALL, 5);
 
 	bSizer3->Add(bSizer6, 2, wxEXPAND, 5);
 
@@ -2022,7 +2070,6 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 
 	this->Connect(OtherWindowMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::OtherWindowMenuOnMenuSelection));
 	this->Connect(TextMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::TextMenuOnMenuSelection));
-	m_code_run_button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::m_code_run_buttonOnButtonClick), NULL, this);
 	//this->Connect(CodeViewMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::CodeViewMenuOnMenuSelection));
 }
 
@@ -2075,7 +2122,7 @@ MainFrame::~MainFrame()
 	this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::OtherWindowMenuOnMenuSelection));
 	this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::TextMenuOnMenuSelection));
 
-	m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::m_code_run_buttonOnButtonClick), NULL, this);
+	//m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::m_code_run_buttonOnButtonClick), NULL, this);
 	
 	next->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::nextOnButtonClick), NULL, this);
 	before->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::beforeOnButtonClick), NULL, this);

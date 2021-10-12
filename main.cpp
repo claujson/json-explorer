@@ -117,7 +117,9 @@ namespace wiz {
 		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
 			++count;
 			if (ut->get_data_list(i)->get_name().is_key()) {
-				str += ut->get_data_list(i)->get_name().str_val + " : ";
+				str += "\"";
+				str += ut->get_data_list(i)->get_name().str_val;
+				str += "\" : ";
 			}
 			if (ut->get_data_list(i)->is_object()) {
 				str += " { ";
@@ -1912,7 +1914,7 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 
 
 	wxMenuItem* TextMenu;
-	TextMenu = new wxMenuItem(WindowMenu, wxID_ANY, wxString(wxT("Text")), wxEmptyString, wxITEM_NORMAL);
+	TextMenu = new wxMenuItem(WindowMenu, wxID_ANY, wxString(wxT("Lang")), wxEmptyString, wxITEM_NORMAL);
 	WindowMenu->Append(TextMenu);
 
 

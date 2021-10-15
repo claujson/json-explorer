@@ -143,7 +143,7 @@ namespace wiz {
 		}
 			
 		// second item
-		for (int i = Max(0LL, (long long)(start - ut->get_data_size()) * 2); i < ut->get_data2_size() && count < count_limit; ++i) {
+		for (int i = Max(0LL, (long long)(start - ut->get_data_size()) * (ut->is_object()? 2 : 1)); i < ut->get_data2_size() && count < count_limit; ++i) {
 			++count;
 
 			if (ut->is_object()) {
@@ -246,7 +246,7 @@ inline std::string Convert(wxString&& str) {
 
 using namespace std;
 
-class TextFrame : public wxFrame
+class LangFrame : public wxFrame
 {
 private:
 
@@ -279,15 +279,15 @@ protected:
 
 public:
 
-	TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
+	LangFrame(clau::UserType** now, int* dataViewListCtrlNo,
 		long long *position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 		wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(770, 381), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
-	~TextFrame();
+	~LangFrame();
 
 };
 
-TextFrame::TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
+LangFrame::LangFrame(clau::UserType** now, int* dataViewListCtrlNo,
 	long long* position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 	wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style),
 	 ptr_dataViewListCtrlNo(dataViewListCtrlNo), ptr_position(position)
@@ -305,7 +305,7 @@ TextFrame::TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
 
 	m_code = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, wxEmptyString);
 	m_code->SetText(wxString(wxT(
-		"#ClauExplorer (https://github.com/ClauParser/ClauExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
+		"#SimdClauJson Explorer (https://github.com/vztpv/SimdClauJsonExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
 	m_code->SetUseTabs(true);
 	m_code->SetTabWidth(4);
 	m_code->SetIndent(4);
@@ -356,13 +356,13 @@ TextFrame::TextFrame(clau::UserType** now, int* dataViewListCtrlNo,
 
 	// Connect Events
 
-	m_code_run_button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_code_run_buttonOnButtonClick), NULL, this);
+	m_code_run_button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LangFrame::m_code_run_buttonOnButtonClick), NULL, this);
 }
 
-TextFrame::~TextFrame()
+LangFrame::~LangFrame()
 {
 	// Disconnect Events
-	m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(TextFrame::m_code_run_buttonOnButtonClick), NULL, this);
+	m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LangFrame::m_code_run_buttonOnButtonClick), NULL, this);
 
 }
 
@@ -904,7 +904,7 @@ protected:
 			RefreshText(now);
 			RefreshTable(now);
 
-			SetTitle(wxT("ClauExplorer : ") + _fileName);
+			SetTitle(wxT("SimdClauJson Explorer : ") + _fileName);
 
 			*changed = true;
 		}
@@ -1807,10 +1807,10 @@ protected:
 		frame->Show(true);
 	}
 
-	virtual void TextMenuOnMenuSelection(wxCommandEvent& event) {
+	virtual void LangMenuOnMenuSelection(wxCommandEvent& event) {
 		if (*changed) { changedEvent(); }
 
-		TextFrame* frame = new TextFrame(&this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
+		LangFrame* frame = new LangFrame(&this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
 			m_dataViewListCtrl3, m_dataViewListCtrl4, this);
 		
 		frame->Show(true);
@@ -1818,13 +1818,13 @@ protected:
 
 public:
 
-	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("ClauExplorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 private:
-	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<clau::UserType> global, clau::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("ClauExplorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<clau::UserType> global, clau::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 public:
 	~MainFrame();
 	
-	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("ClauExplorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	void FirstFrame() {
 		isMain = true;
@@ -1913,9 +1913,9 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 	WindowMenu->Append(OtherWindowMenu);
 
 
-	wxMenuItem* TextMenu;
-	TextMenu = new wxMenuItem(WindowMenu, wxID_ANY, wxString(wxT("Lang")), wxEmptyString, wxITEM_NORMAL);
-	WindowMenu->Append(TextMenu);
+	wxMenuItem* langMenu;
+	langMenu = new wxMenuItem(WindowMenu, wxID_ANY, wxString(wxT("Lang")), wxEmptyString, wxITEM_NORMAL);
+	WindowMenu->Append(langMenu);
 
 
 
@@ -2071,7 +2071,7 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 
 
 	this->Connect(OtherWindowMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::OtherWindowMenuOnMenuSelection));
-	this->Connect(TextMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::TextMenuOnMenuSelection));
+	this->Connect(langMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::LangMenuOnMenuSelection));
 	//this->Connect(CodeViewMenu->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::CodeViewMenuOnMenuSelection));
 }
 
@@ -2122,7 +2122,7 @@ MainFrame::~MainFrame()
 	m_dataViewListCtrl4->Disconnect(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED, wxDataViewEventHandler(MainFrame::m_dataViewListCtrl4OnDataViewListCtrlSelectionchanged), NULL, this);
 	
 	this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::OtherWindowMenuOnMenuSelection));
-	this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::TextMenuOnMenuSelection));
+	this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(MainFrame::LangMenuOnMenuSelection));
 
 	//m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MainFrame::m_code_run_buttonOnButtonClick), NULL, this);
 	

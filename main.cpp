@@ -13,7 +13,7 @@
 #include <algorithm>
 
 
-#include "simdclaujson.h"
+#include "claujson.h"
 
 #include "smart_ptr.h"
 
@@ -49,10 +49,10 @@
 
 namespace wiz {
 
-	clau::Data Parse(const std::string& str) {
-		clau::Data data;
+	claujson::Data Parse(const std::string& str) {
+		claujson::Data data;
 	
-		if (clau::SimdClauJson::Parse_One(str, data) == 0) {
+		if (claujson::Parse_One(str, data) == 0) {
 			// success
 		}
 		else { // fail
@@ -63,11 +63,10 @@ namespace wiz {
 		return data;
 	}
 
-	std::string ToString(const clau::Data& data) {
+	std::string ToString(const claujson::Data& data) {
 		std::string result;
 
 		switch (data.type) {
-			case simdjson::internal::tape_type::KEY_VALUE:
 			case simdjson::internal::tape_type::STRING:
 			{
 				result = "\"";
@@ -105,7 +104,7 @@ namespace wiz {
 		return x > y ? x : y;
 	}
 
-	std::string _ToStringEx(clau::UserType* ut, long long start, long long& count, long long count_limit) {
+	std::string _ToStringEx(claujson::UserType* ut, long long start, long long& count, long long count_limit) {
 
 		if (count >= count_limit) {
 			return std::string();
@@ -116,7 +115,7 @@ namespace wiz {
 		// first object or array
 		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
 			++count;
-			if (ut->get_data_list(i)->get_name().is_key()) {
+			if (ut->get_data_list(i)->get_name().is_key) {
 				str += "\"";
 				str += ut->get_data_list(i)->get_name().str_val;
 				str += "\" : ";
@@ -175,7 +174,7 @@ namespace wiz {
 		return str;
 	}
 
-	std::string ToStringEx(clau::UserType* ut, long long start) {
+	std::string ToStringEx(claujson::UserType* ut, long long start) {
 		long long count = 0;
 		return _ToStringEx(ut, start, count, 256);
 	}
@@ -255,7 +254,7 @@ protected:
 	wxStyledTextCtrl* m_code;
 	wxButton* m_code_run_button;
 
-	clau::UserType** now;
+	claujson::UserType** now;
 	int* ptr_dataViewListCtrlNo;
 	long long* ptr_position;
 
@@ -279,7 +278,7 @@ protected:
 
 public:
 
-	LangFrame(clau::UserType** now, int* dataViewListCtrlNo,
+	LangFrame(claujson::UserType** now, int* dataViewListCtrlNo,
 		long long *position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 		wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(770, 381), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
@@ -287,7 +286,7 @@ public:
 
 };
 
-LangFrame::LangFrame(clau::UserType** now, int* dataViewListCtrlNo,
+LangFrame::LangFrame(claujson::UserType** now, int* dataViewListCtrlNo,
 	long long* position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 	wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style),
 	 ptr_dataViewListCtrlNo(dataViewListCtrlNo), ptr_position(position)
@@ -305,7 +304,7 @@ LangFrame::LangFrame(clau::UserType** now, int* dataViewListCtrlNo,
 
 	m_code = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, wxEmptyString);
 	m_code->SetText(wxString(wxT(
-		"#SimdClauJson Explorer (https://github.com/vztpv/SimdClauJsonExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
+		"#SimdclaujsonJson Explorer (https://github.com/vztpv/SimdclaujsonJsonExplorer) \n#		제작자 vztpv@naver.com\n"), wxConvUTF8));
 	m_code->SetUseTabs(true);
 	m_code->SetTabWidth(4);
 	m_code->SetIndent(4);
@@ -369,7 +368,7 @@ LangFrame::~LangFrame()
 class ChangeWindow : public wxDialog
 {
 private:
-	wiz::SmartPtr<clau::UserType> ut;
+	wiz::SmartPtr<claujson::UserType> ut;
 	bool isUserType; // ut(true) or it(false)
 	int idx; // ut-idx or it-idx. or ilist idx(type == insert)
 	int type; // change 1, insert 2
@@ -385,25 +384,25 @@ protected:
 
 		try {
 			if (1 == type && !isUserType) { // change
-				clau::Data x = wiz::Parse(var);
-				clau::Data y = wiz::Parse(val);
+				claujson::Data x = wiz::Parse(var);
+				claujson::Data y = wiz::Parse(val);
 
 
 				if (x.type == simdjson::internal::tape_type::STRING) {
-					x.type = simdjson::internal::tape_type::KEY_VALUE;
+					x.is_key = true;
 				}
 
-				if (y.type == simdjson::internal::tape_type::NONE) {
+				if (y.type == simdjson::internal::tape_type::ROOT) {
 					return; // error
 				}
 
-				if (x.type == simdjson::internal::tape_type::KEY_VALUE && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
+				if (x.is_key && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
 						ut->get_data2_list(idx * 2 + 1) = y;
 						ut->get_data2_list(idx * 2) = x;
 					}
 				}
-				else if (x.type == simdjson::internal::tape_type::NONE && ut->is_array() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
+				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
 						ut->get_data2_list(idx) = y;
 					}
@@ -413,53 +412,53 @@ protected:
 				}
 			}
 			else if (1 == type) { // change && isUserType
-				clau::Data x = wiz::Parse(var);
+				claujson::Data x = wiz::Parse(var);
 				if (x.type == simdjson::internal::tape_type::STRING) {
-					x.type = simdjson::internal::tape_type::KEY_VALUE;
+					x.is_key = true;
 				}
 
-				if (x.type == simdjson::internal::tape_type::KEY_VALUE && ut->is_object()) {
+				if (x.is_key && ut->is_object()) {
 					ut->get_data_list(idx)->set_name(x.str_val);
 				}
-				else if (x.type == simdjson::internal::tape_type::NONE && ut->is_array()) {
+				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array()) {
 					return;
 				}
 			}
 			else if (2 == type) { // insert
-				clau::Data x = wiz::Parse(var);
-				clau::Data y = wiz::Parse(val);
+				claujson::Data x = wiz::Parse(var);
+				claujson::Data y = wiz::Parse(val);
 
 				if (x.type == simdjson::internal::tape_type::STRING) {
-					x.type = simdjson::internal::tape_type::KEY_VALUE;
+					x.is_key = true;
 				}
 
-				if (y.type == simdjson::internal::tape_type::NONE) {
+				if (y.type == simdjson::internal::tape_type::ROOT) {
 					return; // error
 				}
 
-				if (x.type == simdjson::internal::tape_type::KEY_VALUE && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
+				if (x.is_key && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					ut->add_object_element(x, y);
 				}
-				else if (x.type == simdjson::internal::tape_type::KEY_VALUE && ut->is_object() && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
+				else if (x.is_key && ut->is_object() && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						clau::UserType* object = clau::UserType::make_object(x);
+						claujson::UserType* object = claujson::UserType::make_object(x);
 						ut->add_object_with_key(object);
 					}
 					else {
-						clau::UserType* _array = clau::UserType::make_array(x);
+						claujson::UserType* _array = claujson::UserType::make_array(x);
 						ut->add_array_with_key(_array);
 					}
 				}
-				else if (x.type == simdjson::internal::tape_type::NONE && (ut->is_array() || ut->is_root()) && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
+				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					ut->add_array_element(y);
 				}
-				else if (x.type == simdjson::internal::tape_type::NONE && (ut->is_array() || ut->is_root()) && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
+				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						clau::UserType* object = clau::UserType::make_object(x);
+						claujson::UserType* object = claujson::UserType::make_object(x);
 						ut->add_object_with_no_key(object);
 					}
 					else {
-						clau::UserType* _array = clau::UserType::make_array(x);
+						claujson::UserType* _array = claujson::UserType::make_array(x);
 						ut->add_array_with_no_key(_array);
 					}
 				}
@@ -477,11 +476,11 @@ protected:
 	}
 
 public:
-	ChangeWindow(wxWindow* parent, wiz::SmartPtr<clau::UserType> ut, bool isUserType, int idx, int type, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	ChangeWindow(wxWindow* parent, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 	~ChangeWindow();
 };
 
-ChangeWindow::ChangeWindow(wxWindow* parent, wiz::SmartPtr<clau::UserType> ut, bool isUserType, int idx, int type, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+ChangeWindow::ChangeWindow(wxWindow* parent, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
 	: ut(ut), isUserType(isUserType), idx(idx), type(type),  wxDialog(parent, id, "change/insert window", pos, size, style)
 {
 
@@ -529,8 +528,8 @@ class MainFrame : public wxFrame
 private:
 	bool isMain = false;
 
-	wiz::SmartPtr<clau::UserType> global;
-	clau::UserType* now = nullptr;
+	wiz::SmartPtr<claujson::UserType> global;
+	claujson::UserType* now = nullptr;
 
 	int dataViewListCtrlNo = -1;
 	long long position = -1;
@@ -544,7 +543,7 @@ private:
 
 	std::vector<std::string> dir_vec;
 private:
-	void RefreshText(wiz::SmartPtr<clau::UserType> now) {
+	void RefreshText(wiz::SmartPtr<claujson::UserType> now) {
 		wxDataViewListCtrl* ctrl[4];
 		ctrl[0] = m_dataViewListCtrl1;
 		ctrl[1] = m_dataViewListCtrl2;
@@ -558,7 +557,7 @@ private:
 		textCtrl->ChangeValue(Convert(wiz::ToStringEx(now, start)));
 	}
 
-	void RefreshText2(wiz::SmartPtr<clau::UserType> now) {
+	void RefreshText2(wiz::SmartPtr<claujson::UserType> now) {
 		wxDataViewListCtrl* ctrl[4];
 		ctrl[0] = m_dataViewListCtrl1;
 		ctrl[1] = m_dataViewListCtrl2;
@@ -595,7 +594,7 @@ private:
 	
 		*changed = false;
 	}
-	void RefreshTable(wiz::SmartPtr<clau::UserType> now)
+	void RefreshTable(wiz::SmartPtr<claujson::UserType> now)
 	{
 		m_dataViewListCtrl1->DeleteAllItems();
 		m_dataViewListCtrl2->DeleteAllItems();
@@ -628,7 +627,7 @@ private:
 
 
 	}
-	void AddData(wiz::SmartPtr<clau::UserType> global, int start)
+	void AddData(wiz::SmartPtr<claujson::UserType> global, int start)
 	{
 		{
 			int size;
@@ -869,7 +868,7 @@ protected:
 
 			count++;
 
-			if (0 == (x = clau::SimdClauJson::Parse(fileName.c_str(), *global, 0))) {
+			if (0 == (x = claujson::Parse(fileName.c_str(), 0, global))) {
 				
 				if (x == 0) {
 					encoding = Encoding::UTF8;
@@ -904,7 +903,7 @@ protected:
 			RefreshText(now);
 			RefreshTable(now);
 
-			SetTitle(wxT("SimdClauJson Explorer : ") + _fileName);
+			SetTitle(wxT("SimdclaujsonJson Explorer : ") + _fileName);
 
 			*changed = true;
 		}
@@ -955,7 +954,7 @@ protected:
 		{
 			string fileName(saveFileDialog->GetPath().c_str());
 
-			clau::LoadData::save(fileName, *global);
+			claujson::LoadData::save(fileName, *global);
 
 			m_code_run_result->SetLabelText(saveFileDialog->GetPath() + wxT(" is saved.."));
 		}
@@ -1818,22 +1817,22 @@ protected:
 
 public:
 
-	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 private:
-	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<clau::UserType> global, clau::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 public:
 	~MainFrame();
 	
-	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	void FirstFrame() {
 		isMain = true;
 
-		global = new clau::UserType();
+		global = new claujson::UserType();
 		now = global;
 	}
 };
-MainFrame::MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<clau::UserType> global, clau::UserType* now, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style)
+MainFrame::MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style)
 {
 	init(parent, id, title, pos, size, style);
 

@@ -49,8 +49,8 @@
 
 namespace wiz {
 
-	claujson::Data Parse(const std::string& str) {
-		claujson::Data data;
+	class claujson::Data Parse(const std::string& str) {
+		class claujson::Data data;
 	
 		if (claujson::Parse_One(str, data) == 0) {
 			// success
@@ -98,6 +98,23 @@ namespace wiz {
 		return result;
 	}
 	
+	inline int64_t GetIdx(claujson::UserType* ut, int64_t position, int64_t start) {
+		int64_t idx = start;
+
+		if (ut->is_object()) {
+			for (int64_t i = 0; start + i < ut->get_data_size() && i < position; ++i) {
+				++idx;
+				if (ut->get_data_list(start + i)->is_item_type()) {
+					++idx;
+				}
+			}
+		}
+		else {
+			return start + position;
+		}
+
+		return idx;
+	}
 
 	template <class T>
 	T Max(const T& x, const T& y) {
@@ -112,26 +129,47 @@ namespace wiz {
 
 		std::string str;
 
-		// first object or array
+		// key = data, key = { }, data, { }, ...
 		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
 			++count;
-			if (ut->get_data_list(i)->get_name().is_key) {
+
+			if (ut->get_data_list(i)->get_value().is_key) {
 				str += "\"";
-				str += ut->get_data_list(i)->get_name().str_val;
+				str += ut->get_data_list(i)->get_value().str_val;
 				str += "\" : ";
 			}
+
 			if (ut->get_data_list(i)->is_object()) {
 				str += " { ";
+
+				str += _ToStringEx(ut->get_data_list(i), 0, count, count_limit);
+				if (ut->get_data_list(i)->is_object()) {
+					str += " } ";
+				}
+				else {
+					str += " ] ";
+				}
 			}
-			else {
+			else if(ut->get_data_list(i)->is_array()) {
 				str += " [ ";
-			}
-			str += _ToStringEx(ut->get_data_list(i), 0, count, count_limit);
-			if (ut->get_data_list(i)->is_object()) {
-				str += " } ";
+
+				str += _ToStringEx(ut->get_data_list(i), 0, count, count_limit);
+				if (ut->get_data_list(i)->is_object()) {
+					str += " } ";
+				}
+				else {
+					str += " ] ";
+				}
 			}
 			else {
-				str += " ] ";
+				// key = data.
+				if (ut->is_object()) {
+					str += ToString(ut->get_data_list(i + 1)->get_value());
+					++i;
+				}
+				else {
+					str += ToString(ut->get_data_list(i)->get_value());
+				}
 			}
 
 			if (i < ut->get_data_size()) {
@@ -139,36 +177,6 @@ namespace wiz {
 			}
 
 			str += "\n";
-		}
-			
-		// second item
-		for (int i = Max(0LL, (long long)(start - ut->get_data_size()) * (ut->is_object()? 2 : 1)); i < ut->get_data2_size() && count < count_limit; ++i) {
-			++count;
-
-			if (ut->is_object()) {
-				str += ToString(ut->get_data2_list(i));
-				str += " : ";
-
-				++i;
-				str += ToString(ut->get_data2_list(i));
-
-				if (i < ut->get_data2_size() - 1) {
-					str += ", ";
-				}
-				else {
-					str += " ";
-				}
-			}
-			else {
-				str += ToString(ut->get_data2_list(i));
-
-				if (i < ut->get_data2_size() - 1) {
-					str += ", ";
-				}
-				else {
-					str += " ";
-				}
-			}
 		}
 
 		return str;
@@ -376,6 +384,7 @@ protected:
 	wxTextCtrl* var_text;
 	wxTextCtrl* val_text;
 	wxButton* ok;
+	claujson::PoolManager* manager;
 
 	// Virtual event handlers, overide them in your derived class
 	virtual void okOnButtonClick(wxCommandEvent& event) {
@@ -398,13 +407,14 @@ protected:
 
 				if (x.is_key && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
-						ut->get_data2_list(idx * 2 + 1) = y;
-						ut->get_data2_list(idx * 2) = x;
+						ut->get_data_list(idx)->set_value(x);
+						ut->get_data_list(idx + 1)->set_value(y);
 					}
 				}
-				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
+				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array() && y.type != simdjson::internal::tape_type::START_ARRAY
+					&& y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
-						ut->get_data2_list(idx) = y;
+						ut->get_data_list(idx)->set_value(y);
 					}
 				}
 				else {
@@ -418,7 +428,7 @@ protected:
 				}
 
 				if (x.is_key && ut->is_object()) {
-					ut->get_data_list(idx)->set_name(x.str_val);
+					ut->get_data_list(idx)->set_value(x.str_val);
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array()) {
 					return;
@@ -432,33 +442,33 @@ protected:
 					x.is_key = true;
 				}
 
-				if (y.type == simdjson::internal::tape_type::ROOT) {
+				if (y.type == simdjson::internal::tape_type::ROOT) {// ROOT as NONE
 					return; // error
 				}
 
 				if (x.is_key && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
-					ut->add_object_element(x, y);
+					ut->add_object_element(*manager, x, y);
 				}
 				else if (x.is_key && ut->is_object() && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(x);
+						claujson::UserType* object = claujson::UserType::make_object(*manager, x);
 						ut->add_object_with_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(x);
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, x);
 						ut->add_array_with_key(_array);
 					}
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
-					ut->add_array_element(y);
+					ut->add_array_element(*manager, y);
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(x);
+						claujson::UserType* object = claujson::UserType::make_object(*manager, x);
 						ut->add_object_with_no_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(x);
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, x);
 						ut->add_array_with_no_key(_array);
 					}
 				}
@@ -476,12 +486,14 @@ protected:
 	}
 
 public:
-	ChangeWindow(wxWindow* parent, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	ChangeWindow(wxWindow* parent, claujson::PoolManager* manager, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, 
+		wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	
 	~ChangeWindow();
 };
 
-ChangeWindow::ChangeWindow(wxWindow* parent, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
-	: ut(ut), isUserType(isUserType), idx(idx), type(type),  wxDialog(parent, id, "change/insert window", pos, size, style)
+ChangeWindow::ChangeWindow(wxWindow* parent, claujson::PoolManager* manager, wiz::SmartPtr<claujson::UserType> ut, bool isUserType, int idx, int type, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+	: manager(manager), ut(ut), isUserType(isUserType), idx(idx), type(type),  wxDialog(parent, id, "change/insert window", pos, size, style)
 {
 
 	wxBoxSizer* bSizer4;
@@ -498,11 +510,11 @@ ChangeWindow::ChangeWindow(wxWindow* parent, wiz::SmartPtr<claujson::UserType> u
 
 	if (1 == type) {
 		if (isUserType) {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_name())));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value())));
 		}
 		else {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_data2_list(idx * 2))));
-			val_text->SetValue(Convert(wiz::ToString(ut->get_data2_list(idx * 2 + 1))));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value())));
+			val_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx + 1)->get_value())));
 		}
 	}
 
@@ -526,6 +538,8 @@ ChangeWindow::~ChangeWindow()
 class MainFrame : public wxFrame
 {
 private:
+	claujson::PoolManager manager;
+
 	bool isMain = false;
 
 	wiz::SmartPtr<claujson::UserType> global;
@@ -566,11 +580,12 @@ private:
 
 		long long start = 0;
 		long long sum = 0;
+		long long idx = 0;
 
 		for (int i = 0; i < dataViewListCtrlNo; ++i) {
-			sum += ctrl[i]->GetItemCount();
+			idx = wiz::GetIdx(now, ctrl[i]->GetItemCount(), idx);
 		}
-		sum += (position);
+		sum += wiz::GetIdx(now, position, idx);
 		sum += part.back() * part_size;
 		start = sum;
 
@@ -630,16 +645,8 @@ private:
 	void AddData(wiz::SmartPtr<claujson::UserType> global, int start)
 	{
 		{
-			int size;
-			if (global->is_object()) {
-				size = global->get_data_size() + global->get_data2_size()/2;
-			}
-			else {
-				size = global->get_data_size() + global->get_data2_size();
-			}
+			int size = global->get_data_size();
 
-			const int utSize = global->get_data_size();
-			
 			if (size > part_size) {
 				if (size > part_size * part.back() && size <= part_size * (part.back() + 1)) {
 					size = size - part_size * part.back();
@@ -651,150 +658,155 @@ private:
 
 			int size_per_unit = size / 4;
 
-			const int last_size = size - size_per_unit * 3;
+			const int last_size = size;
 			int count = start;
-			int utCount = 0;
-			int itCount = 0;
-
-			if (start < global->get_data_size()) {
-				utCount = start;
-			}
-			else {
-				utCount = global->get_data_size();
-				itCount = start - global->get_data_size();
-			}
 
 			wxVector<wxVariant> value;
 
-			for (int i = 0; i < size_per_unit; ++i) {
+			int i = 0;
+
+			for ( ; i < size_per_unit; ++i) {
 				value.clear();
 
-				if (count < utSize) { // data
-					if (wiz::ToString(global->get_data_list(utCount)->get_name()).empty()) {
+				if (global->get_data_list(i)->is_user_type()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(utCount)->get_name()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					if (global->get_data_list(utCount)->is_object()) {
+					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else {
+					else if (global->get_data_list(i)->is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
-					utCount++;
+					else {
+						value.push_back(wxVariant(wxT("ERROR")));
+					}
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2 + 1)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
+						++i;
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
 
-					itCount++;
 				}
 
 				m_dataViewListCtrl1->AppendItem(value);
 				count++;
 			}
-			for (int i = 0; i < size_per_unit; ++i) {
+			for ( ; i < size_per_unit * 2; ++i) {
 				value.clear();
 
-				if (count < utSize) {
-					if (wiz::ToString(global->get_data_list(utCount)->get_name()).empty()) {
-						value.push_back(wxVariant(wxT(""))); // object or array?
+				if (global->get_data_list(i)->is_user_type()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
+						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(utCount)->get_name()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					if (global->get_data_list(utCount)->is_object()) {
+					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else {
+					else if (global->get_data_list(i)->is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
-					utCount++;
+					else {
+						value.push_back(wxVariant(wxT("ERROR")));
+					}
 				}
-				else {
+				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2 + 1)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
+						++i;
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					itCount++;
+
 				}
+
 
 				m_dataViewListCtrl2->AppendItem(value);
 				count++;
 			}
-			for (int i = 0; i < size_per_unit; ++i) {
+			for ( ; i < size_per_unit * 3; ++i) {
 				value.clear();
-
-				if (count < utSize) {
-					if (wiz::ToString(global->get_data_list(utCount)->get_name()).empty()) {
+				if (global->get_data_list(i)->is_user_type()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(utCount)->get_name()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					if (global->get_data_list(utCount)->is_object()) {
+					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else {
+					else if (global->get_data_list(i)->is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
-					utCount++;
+					else {
+						value.push_back(wxVariant(wxT("ERROR")));
+					}
 				}
-				else {
+				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2 + 1)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
+						++i;
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					itCount++;
+
 				}
+
 
 				m_dataViewListCtrl3->AppendItem(value);
 				count++;
 			}
-			for (int i = 0; i < last_size; ++i) {
+			for ( ; i < last_size; ++i) {
 				value.clear();
 
-				if (count < utSize) {
-					if (wiz::ToString(global->get_data_list(utCount)->get_name()).empty()) {
+				if (global->get_data_list(i)->is_user_type()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(utCount)->get_name()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					if (global->get_data_list(utCount)->is_object()) {
+					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else {
+					else if (global->get_data_list(i)->is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
-					utCount++;
+					else {
+						value.push_back(wxVariant(wxT("ERROR")));
+					}
 				}
-				else {
+				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount * 2 + 1)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
+						++i;
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data2_list(itCount)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
 					}
-					itCount++;
+
 				}
+
 
 				m_dataViewListCtrl4->AppendItem(value);
 				count++;
@@ -862,31 +874,34 @@ protected:
 			wxString _fileName = openFileDialog->GetPath();
 			std::string fileName(_fileName.c_str());
 
-			global->remove_all();
-			
-			int x = 0;
+			global->remove_all(manager);
+			manager.Clear();
+
+			claujson::UserType* x = nullptr;
 
 			count++;
 
-			if (0 == (x = claujson::Parse(fileName.c_str(), 0, global))) {
-				
-				if (x == 0) {
-					encoding = Encoding::UTF8;
+			std::vector<claujson::Block> blocks;
+
+			if (nullptr != (x = claujson::Parse(fileName.c_str(), 0, global, blocks))) {
+				encoding = Encoding::UTF8;
 				//	SetConsoleOutputCP(65001); // for windows
 					//setlocale(LC_ALL, "en_US.UTF-8");
-					std::string temp = std::to_string(count);
-					m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) +  wxT("Load Success! file is UTF-8"));
-				}
+				std::string temp = std::to_string(count);
 
+				manager = claujson::PoolManager(x, std::move(blocks));
+				
+				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Success! file is UTF-8"));
 			}
 			else {
 				std::string temp = std::to_string(count);
 				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Failed!"));
 			}
+
 			now = global;
 
 			dataViewListCtrlNo = -1;
-			position = now->get_data_size() + now->get_data2_size() > 0? 0 : -1;
+			position = now->get_data_size() > 0? 0 : -1;
 
 			run_count = 0;
 
@@ -918,7 +933,9 @@ protected:
 		//setlocale(LC_ALL, "en_US.UTF-8");
 
 		now = nullptr;
-		global->remove_all();
+		global->remove_all(manager);
+		manager.Clear();
+
 		now = global;
 
 		dataViewListCtrlNo = -1;
@@ -972,20 +989,13 @@ protected:
 		//	return;
 		//}
 
-		int idx = -1;
+		int idx = now->get_data_size();// / 4)* dataViewListCtrlNo;
 		
-		//if (now->is_object()) {
-		//	idx = position + ((now->get_data_size() + now->get_data2_size()/2) / 4) * dataViewListCtrlNo;
-		//}
-		//else {
-		//	idx = position + ((now->get_data_size() + now->get_data2_size()) / 4) * dataViewListCtrlNo;
-		//}
-
-		bool isUserType = false; // idx < now->get_data_size(); // now->IsUserTypeList(idx);
+		bool isUserType = false; // now->get_data_list(idx)->is_user_type();
 
 		//if (dataViewListCtrlNo == -1) { return; }
 
-		ChangeWindow* changeWindow = new ChangeWindow(this, now, isUserType, idx, 2);
+		ChangeWindow* changeWindow = new ChangeWindow(this, &manager, now, isUserType, idx, 2);
 
 		changeWindow->ShowModal();
 
@@ -1002,18 +1012,11 @@ protected:
 		}
 		if (-1 == position) { return; }
 
-		int idx;
+		int idx = wiz::GetIdx(now, position, (now->get_data_size() / 4) * dataViewListCtrlNo);
 
-		if (now->is_object()) {
-			idx = position + ((now->get_data_size() + now->get_data2_size() / 2) / 4) * dataViewListCtrlNo;
-		}
-		else {
-			idx = position + ((now->get_data_size() + now->get_data2_size()) / 4) * dataViewListCtrlNo;
-		}
+		bool isUserType = now->get_data_list(idx)->is_user_type();
 
-		bool isUserType = (idx < now->get_data_size());
-
-		ChangeWindow* changeWindow = new ChangeWindow(this, now, isUserType,
+		ChangeWindow* changeWindow = new ChangeWindow(this, &manager, now, isUserType,
 			isUserType ? idx : idx - now->get_data_size(), 1);
 
 		changeWindow->ShowModal();
@@ -1030,29 +1033,23 @@ protected:
 			return;
 		}
 		if (-1 == position) { return; }
-		int idx;
-
-		if (now->is_object()) {
-			idx = position + ((now->get_data_size() + now->get_data2_size() / 2) / 4) * dataViewListCtrlNo;
-		}
-		else {
-			idx = position + ((now->get_data_size() + now->get_data2_size()) / 4) * dataViewListCtrlNo;
-		}
+		
+		int idx = wiz::GetIdx(now, position, ((now->get_data_size()) / 4) * dataViewListCtrlNo);
 		
 		int type = 1;
 
-		bool isUserType = (idx < now->get_data_size());
+		bool isUserType = now->get_data_list(idx)->is_user_type();
 
 		if (isUserType) {
-			now->remove_data_list(idx);
+			now->remove_data_list(manager, idx);
 		}
 		else {
 			if (now->is_object()) {
-				now->remove_data2_list((idx - now->get_data_size()) * 2 + 1);
-				now->remove_data2_list((idx - now->get_data_size()) * 2);
+				now->remove_data_list(manager, idx + 1);
+				now->remove_data_list(manager, idx);
 			}
 			else {
-				now->remove_data2_list((idx - now->get_data_size()));
+				now->remove_data_list(manager, idx);
 			}
 		}
 		RefreshText(now);
@@ -1100,13 +1097,7 @@ protected:
 		}
 		dataViewListCtrlNo = 0; position = m_dataViewListCtrl1->GetSelectedRow();
 
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size() ;
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1132,14 +1123,13 @@ protected:
 			}
 			position = -1;
 		}
-		else if (NK_ENTER == event.GetKeyCode() && position >= 0 && position + part.back() * part_size < now->get_data_size()) { // is_user_type <- position < now->get_data_size()
-			now = now->get_data_list(position + part.back() * part_size);
+		else if (NK_ENTER == event.GetKeyCode() && position >= 0 && now->get_data_list(wiz::GetIdx(now, position, part.back() * part_size))->is_user_type()) { // is_user_type <- position < now->get_data_size()
+			now = now->get_data_list(wiz::GetIdx(now, position, part.back() * part_size));
 			
 			
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object()? "{" + std::to_string(position + part.back() * part_size)
-				 + "}" :
-																					"[" + std::to_string(position + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object()? "{" + std::to_string(wiz::GetIdx(now, position , part.back() * part_size))
+				 + "}" : "[" + std::to_string(wiz::GetIdx(now, position, part.back() * part_size))  + "]"), part);
 
 
 			RefreshText(now);
@@ -1194,13 +1184,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1226,12 +1210,14 @@ protected:
 			}
 			position = -1;
 		}
-		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 1 && position >= 0 && position + (length) / 4 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 + part.back() * part_size);
+		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 1 && position >= 0 &&
+				now->get_data_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size))->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size));
 
 		
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)
+				)  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) )  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1287,13 +1273,7 @@ protected:
 		}
 
 
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1319,13 +1299,15 @@ protected:
 			}
 			position = -1;
 		}
-		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 2 && position >= 0 && position + (length) / 4 * 2 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 * 2 + part.back() * part_size);
+		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 2 && position >= 0
+				&& now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) )->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) );
 			
 
 			
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) 
+				)  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1381,13 +1363,8 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
+		
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1412,14 +1389,15 @@ protected:
 			}
 			position = -1;
 		}
-		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 3 && position >= 0 && position + (length) / 4 * 3 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 * 3 + part.back() * part_size);
+		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 3 && position >= 0 
+				&& now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) )->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) );
 
 		
 
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 3 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1474,11 +1452,7 @@ protected:
 	// Part - very long? array or object.
 	virtual void nextOnButtonClick(wxCommandEvent& event) { 
 		if (now) {
-			long long length = (now->get_data_size() + now->get_data2_size());
-
-			if (now->is_object()) {
-				length = now->get_data_size() + now->get_data2_size() / 2;
-			}
+			long long length = now->get_data_size();
 
 			if (!part.empty() && length > (part.back() + 1) * part_size) {
 				part.back()++;
@@ -1525,13 +1499,7 @@ protected:
 		if (*changed) { changedEvent();
 			if (!isMain) { return; }
 		}
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1545,11 +1513,12 @@ protected:
 		int length = size;
 		dataViewListCtrlNo = 0; position = m_dataViewListCtrl1->GetSelectedRow();
 
-		if (position >= 0 && position + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + part.back() * part_size);
+		if (position >= 0 && now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + (length) / 4 * 0 + part.back() * part_size)->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + part.back() * part_size);
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 0 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 * 0 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + 
+					std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size))  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) )  + "]"), part);
 
 
 			RefreshText(now);
@@ -1561,13 +1530,8 @@ protected:
 		if (*changed) { changedEvent();
 			if (!isMain) { return; }
 		}
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
+		
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1580,13 +1544,13 @@ protected:
 
 		int length = size;
 		dataViewListCtrlNo = 1; position = m_dataViewListCtrl2->GetSelectedRow();
-		if (dataViewListCtrlNo == 1 && position >= 0 && position + (length) / 4 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 + part.back() * part_size);
+		if (dataViewListCtrlNo == 1 && position >= 0 && now->get_data_list(wiz::GetIdx(now, position , (length) / 4 + part.back() * part_size) )->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) );
 			
 			
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 1 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 * 1 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size) ) + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size))  + "]"), part);
 			
 
 			RefreshText(now);
@@ -1597,14 +1561,9 @@ protected:
 		if (*changed) { changedEvent();
 			if (!isMain) { return; }
 		}
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
 
+		int size = now->get_data_size();
+		
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
 				size = size - part_size * part.back();
@@ -1616,13 +1575,11 @@ protected:
 
 		int length = size;
 		dataViewListCtrlNo = 2; position = m_dataViewListCtrl3->GetSelectedRow();
-		if (dataViewListCtrlNo == 2 && position >= 0 && position + (length) / 4 * 2 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 * 2 + part.back() * part_size);
-			
-			
+		if (dataViewListCtrlNo == 2 && position >= 0 && now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position,  (length) / 4 * 2 + part.back() * part_size));	
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ) + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1634,13 +1591,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size;
-		if (now->is_object()) {
-			size = now->get_data_size() + now->get_data2_size() / 2;
-		}
-		else {
-			size = now->get_data_size() + now->get_data2_size();
-		}
+		int size = now->get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1654,13 +1605,14 @@ protected:
 		long long length = size;
 
 		dataViewListCtrlNo = 3; position = m_dataViewListCtrl4->GetSelectedRow();
-		if (dataViewListCtrlNo == 3 && position >= 0 && position + (length) / 4 * 3 + part.back() * part_size < now->get_data_size()) {
-			now = now->get_data_list(position + (length) / 4 * 3 + part.back() * part_size);
+		if (dataViewListCtrlNo == 3 && position >= 0 && now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))->is_user_type()) {
+			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size));
 			
 		
 
-			EnterDir(wiz::ToString(now->get_name()) + (now->get_parent()->is_object() ? "{" + std::to_string(position + (length / 4 * 3) + part.back() * part_size)  + "}" :
-				"[" + std::to_string(position + (length / 4 * 3) + part.back() * part_size)  + "]"), part);
+			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + 
+				std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "}" :
+				"[" + std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1817,13 +1769,17 @@ protected:
 
 public:
 
-	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, 
+		const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 private:
-	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id = wxID_ANY, 
+		const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), 
+		long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 public:
 	~MainFrame();
 	
-	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	void init(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("SimdclaujsonJson Explorer"), const wxPoint& pos = wxDefaultPosition, 
+		const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	void FirstFrame() {
 		isMain = true;
@@ -1832,7 +1788,8 @@ public:
 		now = global;
 	}
 };
-MainFrame::MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style)
+MainFrame::MainFrame(wiz::SmartPtr<bool> changed, wiz::SmartPtr<claujson::UserType> global, claujson::UserType* now, wxWindow* parent, wxWindowID id,
+	const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style)
 {
 	init(parent, id, title, pos, size, style);
 

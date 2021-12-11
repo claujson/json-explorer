@@ -1017,7 +1017,7 @@ protected:
 		bool isUserType = now->get_data_list(idx)->is_user_type();
 
 		ChangeWindow* changeWindow = new ChangeWindow(this, &manager, now, isUserType,
-			isUserType ? idx : idx - now->get_data_size(), 1);
+			idx, 1);
 
 		changeWindow->ShowModal();
 

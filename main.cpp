@@ -451,11 +451,11 @@ protected:
 				}
 				else if (x.is_key && ut->is_object() && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(*manager, x);
+						claujson::UserType* object = claujson::UserType::make_object(*manager, std::move(x));
 						ut->add_object_with_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(*manager, x);
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, std::move(x));
 						ut->add_array_with_key(_array);
 					}
 				}
@@ -464,11 +464,11 @@ protected:
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(*manager, x);
+						claujson::UserType* object = claujson::UserType::make_object(*manager, std::move(x));
 						ut->add_object_with_no_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(*manager, x);
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, std::move(x));
 						ut->add_array_with_no_key(_array);
 					}
 				}

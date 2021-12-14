@@ -67,53 +67,95 @@ namespace wiz {
 		std::string result;
 
 		switch (data.type) {
-			case simdjson::internal::tape_type::STRING:
-			{
-				result = "\"";
-				result += data.str_val;
-				result += "\"";
-			}
+		case simdjson::internal::tape_type::STRING:
+			result += "\"";
+			result += data.str_val;
+			result += "\"";
 			break;
+		case simdjson::internal::tape_type::DOUBLE:
+			result += std::to_string(data.float_val);
+			break;
+		case simdjson::internal::tape_type::INT64:
+			result += std::to_string(data.int_val);
+			break;
+		case simdjson::internal::tape_type::UINT64:
+			result += std::to_string(data.uint_val);
+			break;
+		case simdjson::internal::tape_type::TRUE_VALUE:
+			result += "TRUE";
+			break;
+		case simdjson::internal::tape_type::FALSE_VALUE:
+			result += "FALSE";
+			break;
+		case simdjson::internal::tape_type::NULL_VALUE:
+			result += "NULL";
+			break;
+		}
 
-			case simdjson::internal::tape_type::DOUBLE:
-				result = std::to_string(data.float_val);
-				break;
-			case simdjson::internal::tape_type::INT64:
-				result = std::to_string(data.int_val);
-				break;
-			case simdjson::internal::tape_type::UINT64:
-				result = std::to_string(data.uint_val);
-				break;
-			case simdjson::internal::tape_type::TRUE_VALUE:
-				result = "TRUE";
-				break;
-			case simdjson::internal::tape_type::FALSE_VALUE:
-				result = "FALSE";
-				break;
-			case simdjson::internal::tape_type::NULL_VALUE:
-				result = "NULL";
-				break;
+		return result;
+	}
+	std::string ToString(const claujson::ItemType& item) {
+		std::string result;
+
+		switch (item.key.type) {
+		case simdjson::internal::tape_type::STRING:
+			result = "\"";
+			result += item.key.str_val;
+			result += "\"";
+			break;
+		}
+		switch (item.data.type) {
+		case simdjson::internal::tape_type::STRING:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += "\"";
+			result += item.data.str_val;
+			result += "\"";
+			break;
+		case simdjson::internal::tape_type::DOUBLE:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += std::to_string(item.data.float_val);
+			break;
+		case simdjson::internal::tape_type::INT64:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += std::to_string(item.data.int_val);
+			break;
+		case simdjson::internal::tape_type::UINT64:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += std::to_string(item.data.uint_val);
+			break;
+		case simdjson::internal::tape_type::TRUE_VALUE:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += "TRUE";
+			break;
+		case simdjson::internal::tape_type::FALSE_VALUE:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += "FALSE";
+			break;
+		case simdjson::internal::tape_type::NULL_VALUE:
+			if (item.key.type == simdjson::internal::tape_type::STRING) {
+				result += " : ";
+			}
+			result += "NULL";
+			break;
 		}
 
 		return result;
 	}
 	
 	inline int64_t GetIdx(claujson::UserType* ut, int64_t position, int64_t start) {
-		int64_t idx = start;
-
-		if (ut->is_object()) {
-			for (int64_t i = 0; start + i < ut->get_data_size() && i < position; ++i) {
-				++idx;
-				if (ut->get_data_list(start + i)->is_item_type()) {
-					++idx;
-				}
-			}
-		}
-		else {
-			return start + position;
-		}
-
-		return idx;
+		return start + position;
 	}
 
 	template <class T>
@@ -133,9 +175,9 @@ namespace wiz {
 		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
 			++count;
 
-			if (ut->get_data_list(i)->get_value().is_key) {
+			if (ut->get_data_list(i)->get_value().key.is_key) {
 				str += "\"";
-				str += ut->get_data_list(i)->get_value().str_val;
+				str += ut->get_data_list(i)->get_value().key.str_val;
 				str += "\" : ";
 			}
 
@@ -164,11 +206,10 @@ namespace wiz {
 			else {
 				// key = data.
 				if (ut->is_object()) {
-					str += ToString(ut->get_data_list(i + 1)->get_value());
-					++i;
+					str += ToString(ut->get_data_list(i)->get_value().data);
 				}
 				else {
-					str += ToString(ut->get_data_list(i)->get_value());
+					str += ToString(ut->get_data_list(i)->get_value().data);
 				}
 			}
 
@@ -407,14 +448,13 @@ protected:
 
 				if (x.is_key && ut->is_object() && y.type != simdjson::internal::tape_type::START_ARRAY && y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
-						ut->get_data_list(idx)->set_value(x);
-						ut->get_data_list(idx + 1)->set_value(y);
+						ut->get_data_list(idx)->set_value(x, y);
 					}
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array() && y.type != simdjson::internal::tape_type::START_ARRAY
 					&& y.type != simdjson::internal::tape_type::START_OBJECT) {
 					if (idx != -1) {
-						ut->get_data_list(idx)->set_value(y);
+						ut->get_data_list(idx)->set_value(claujson::Data(), y);
 					}
 				}
 				else {
@@ -428,7 +468,7 @@ protected:
 				}
 
 				if (x.is_key && ut->is_object()) {
-					ut->get_data_list(idx)->set_value(x.str_val);
+					ut->get_data_list(idx)->set_value(x, claujson::Data());
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && ut->is_array()) {
 					return;
@@ -451,11 +491,11 @@ protected:
 				}
 				else if (x.is_key && ut->is_object() && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(*manager, std::move(x));
+						claujson::UserType* object = claujson::UserType::make_object(*manager, claujson::ItemType(std::move(x), claujson::Data()));
 						ut->add_object_with_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(*manager, std::move(x));
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, claujson::ItemType(std::move(x), claujson::Data()));
 						ut->add_array_with_key(_array);
 					}
 				}
@@ -464,11 +504,11 @@ protected:
 				}
 				else if (x.type == simdjson::internal::tape_type::ROOT && (ut->is_array() || ut->is_root()) && (y.type == simdjson::internal::tape_type::START_ARRAY || y.type == simdjson::internal::tape_type::START_OBJECT)) {
 					if (y.type == simdjson::internal::tape_type::START_OBJECT) {
-						claujson::UserType* object = claujson::UserType::make_object(*manager, std::move(x));
+						claujson::UserType* object = claujson::UserType::make_object(*manager, claujson::ItemType());
 						ut->add_object_with_no_key(object);
 					}
 					else {
-						claujson::UserType* _array = claujson::UserType::make_array(*manager, std::move(x));
+						claujson::UserType* _array = claujson::UserType::make_array(*manager, claujson::ItemType());
 						ut->add_array_with_no_key(_array);
 					}
 				}
@@ -510,11 +550,11 @@ ChangeWindow::ChangeWindow(wxWindow* parent, claujson::PoolManager* manager, wiz
 
 	if (1 == type) {
 		if (isUserType) {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value())));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value().key)));
 		}
 		else {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value())));
-			val_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx + 1)->get_value())));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value().key)));
+			val_text->SetValue(Convert(wiz::ToString(ut->get_data_list(idx)->get_value().data)));
 		}
 	}
 
@@ -669,11 +709,11 @@ private:
 				value.clear();
 
 				if (global->get_data_list(i)->is_user_type()) {
-					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value().key).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
 					}
 					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -687,13 +727,12 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
-						++i;
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 
 				}
@@ -705,11 +744,11 @@ private:
 				value.clear();
 
 				if (global->get_data_list(i)->is_user_type()) {
-					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value().key).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
 					}
 					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -723,13 +762,12 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
-						++i;
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 
 				}
@@ -741,11 +779,11 @@ private:
 			for ( ; i < size_per_unit * 3; ++i) {
 				value.clear();
 				if (global->get_data_list(i)->is_user_type()) {
-					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value().key).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
 					}
 					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -759,13 +797,12 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
-						++i;
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 
 				}
@@ -778,11 +815,11 @@ private:
 				value.clear();
 
 				if (global->get_data_list(i)->is_user_type()) {
-					if (wiz::ToString(global->get_data_list(i)->get_value()).empty()) {
+					if (wiz::ToString(global->get_data_list(i)->get_value().key).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
 					}
 					if (global->get_data_list(i)->is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -796,13 +833,12 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i + 1)->get_value()))));
-						++i;
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().key))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value()))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_data_list(i)->get_value().data))));
 					}
 
 				}
@@ -1128,7 +1164,7 @@ protected:
 			
 			
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object()? "{" + std::to_string(wiz::GetIdx(now, position , part.back() * part_size))
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object()? "{" + std::to_string(wiz::GetIdx(now, position , part.back() * part_size))
 				 + "}" : "[" + std::to_string(wiz::GetIdx(now, position, part.back() * part_size))  + "]"), part);
 
 
@@ -1215,7 +1251,7 @@ protected:
 			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size));
 
 		
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)
 				)  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) )  + "]"), part);
 
@@ -1305,7 +1341,7 @@ protected:
 			
 
 			
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) 
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) 
 				)  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
 
@@ -1396,7 +1432,7 @@ protected:
 		
 
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
 
 			RefreshText(now);
@@ -1516,7 +1552,7 @@ protected:
 		if (position >= 0 && now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + (length) / 4 * 0 + part.back() * part_size)->is_user_type()) {
 			now = now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + part.back() * part_size);
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + 
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + 
 					std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) )  + "]"), part);
 
@@ -1549,7 +1585,7 @@ protected:
 			
 			
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size) ) + "}" :
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size) ) + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size))  + "]"), part);
 			
 
@@ -1578,7 +1614,7 @@ protected:
 		if (dataViewListCtrlNo == 2 && position >= 0 && now->get_data_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))->is_user_type()) {
 			now = now->get_data_list(wiz::GetIdx(now, position,  (length) / 4 * 2 + part.back() * part_size));	
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))  + "}" :
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ) + "]"), part);
 
 			RefreshText(now);
@@ -1610,7 +1646,7 @@ protected:
 			
 		
 
-			EnterDir(wiz::ToString(now->get_value()) + (now->get_parent()->is_object() ? "{" + 
+			EnterDir(wiz::ToString(now->get_value().key) + (now->get_parent()->is_object() ? "{" + 
 				std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "]"), part);
 

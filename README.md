@@ -6,7 +6,7 @@
 ![alt text](aa3.png) 
 
 # Using modified simdjson 
-https://github.com/vztpv/SimdClauJson3 Apache License 2.0
+https://github.com/vztpv/scj3 Apache License 2.0
 
 # Using Other Repository...
 https://github.com/microsoft/mimalloc MIT License

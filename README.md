@@ -1,4 +1,4 @@
-# SimdClauJson Explorer
+# ClauJson Explorer //SimdClauJson Explorer
 
 # Screen Shots.
 ![alt text](aa1.png)

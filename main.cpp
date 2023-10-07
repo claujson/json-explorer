@@ -127,7 +127,7 @@ namespace wiz {
 			if (ut->get_value_list(i).is_object()) {
 				str += " { ";
 
-				str += _ToStringEx(&ut->get_value_list(i).as_object(), 0, count, count_limit);
+				str += _ToStringEx(ut->get_value_list(i).as_object(), 0, count, count_limit);
 				if (ut->get_value_list(i).is_object()) {
 					str += " } ";
 				}
@@ -138,7 +138,7 @@ namespace wiz {
 			else if(ut->get_value_list(i).is_array()) {
 				str += " [ ";
 
-				str += _ToStringEx(&ut->get_value_list(i).as_array(), 0, count, count_limit);
+				str += _ToStringEx(ut->get_value_list(i).as_array(), 0, count, count_limit);
 				if (ut->get_value_list(i).is_object()) {
 					str += " } ";
 				}

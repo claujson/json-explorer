@@ -52,7 +52,7 @@ namespace wiz {
 	class claujson::Value Parse(const std::string& str) {
 		class claujson::Value data;
 	
-		if (auto x = claujson::parse_str(str, data, 1, false); x.first) {
+		if (auto x = claujson::parse_str(str, data, 1); x.first) {
 			// success
 		}
 		else { // fail
@@ -66,14 +66,17 @@ namespace wiz {
 	std::string ToString(const claujson::Value& data) {
 		std::string result;
 
-		if (!data) {
+		if (!data) { // key <- from array?
 			return "";
 		}
+	
+		bool err = false;
 
 		switch (data.type()) {
 		case claujson::ValueType::STRING:
+		case claujson::ValueType::SHORT_STRING:
 			result += "\"";
-			result += data.get_string();
+			result += data.get_string().get_std_string(err);
 			result += "\"";
 			break;
 		case claujson::ValueType::FLOAT:
@@ -92,7 +95,9 @@ namespace wiz {
 			result += "NULL";
 			break;
 		}
-
+		if (err) {
+			return "ERROR";
+		}
 		return result;
 	}
 	
@@ -120,7 +125,7 @@ namespace wiz {
 
 			if (ut->is_object()) {
 				//str += "\"";
-				str += ToString(ut->get_key_list(i));
+				str += ToString(ut->get_const_key_list(i));
 				str += " : ";
 			}
 
@@ -387,7 +392,7 @@ protected:
 
 				if (x && x.is_str() && ut->is_object() && y.is_primitive()) {
 					if (idx != -1) {
-						ut->get_key_list(idx) = std::move(x);
+						ut->change_key(idx, std::move(x));
 						ut->get_value_list(idx) = std::move(y);
 					}
 				}
@@ -404,7 +409,7 @@ protected:
 				claujson::Value x = wiz::Parse(var);
 				
 				if (x && x.is_str() && ut->is_object()) {
-					ut->get_key_list(idx) = std::move(x);
+					ut->change_key(idx, std::move(x));
 				}
 				else if (x && ut->is_array()) {
 					return;
@@ -467,10 +472,10 @@ ChangeWindow::ChangeWindow(wxWindow* parent, const int mode, wiz::SmartPtr<clauj
 
 	if (1 == type) {
 		if (isStructured) {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_key_list(idx))));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_const_key_list(idx))));
 		}
 		else {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_key_list(idx))));
+			var_text->SetValue(Convert(wiz::ToString(ut->get_const_key_list(idx))));
 			val_text->SetValue(Convert(wiz::ToString(ut->get_value_list(idx))));
 		}
 	}
@@ -625,11 +630,11 @@ private:
 				value.clear();
 
 				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_key_list(i)).empty()) {
+					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 					}
 					if (global->get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -643,7 +648,7 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
 					}
 					else {
@@ -660,11 +665,11 @@ private:
 				value.clear();
 
 				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_key_list(i)).empty()) {
+					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 					}
 					if (global->get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -678,7 +683,7 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
 					}
 					else {
@@ -695,11 +700,11 @@ private:
 			for ( ; i < size_per_unit * 3; ++i) {
 				value.clear();
 				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_key_list(i)).empty()) {
+					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 					}
 					if (global->get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -713,7 +718,7 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
 					}
 					else {
@@ -731,11 +736,11 @@ private:
 				value.clear();
 
 				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_key_list(i)).empty()) {
+					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 					}
 					if (global->get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
@@ -749,7 +754,7 @@ private:
 				}
 				else { // data2
 					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
 						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
 					}
 					else {
@@ -833,7 +838,7 @@ protected:
 			count++;
 
 
-			if (auto x = claujson::parse(fileName, ut, 0, true); x.first) {
+			if (auto x = claujson::parse(fileName, ut, 0); x.first) {
 				encoding = Encoding::UTF8;
 
 				// remove origin..

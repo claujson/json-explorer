@@ -390,18 +390,37 @@ protected:
 			std::string ndJsonText = Convert(wxNDJsonText);
 			std::string jsonText;
 			claujson::Document query;
+			std::string tempStr;
+			bool isFirst = true;
 			jsonText.reserve(16 + ndJsonText.size() * 2);
 
 			jsonText = " [ ";
 			for (int i = 0; i < ndJsonText.size(); ++i) {
-				jsonText.push_back(ndJsonText[i]);
-				if (ndJsonText[i] == '\n') {
-					jsonText.back() = ','; // no trailing white enterkey!!! - warn..
+				if (isspace(ndJsonText[i])) {
+					if (ndJsonText[i] == '\n' || ndJsonText[i] == '\0') {
+						if (!isFirst) {
+							jsonText.back() = ','; // no trailing white enterkey!!! - warn..
+							isFirst = false;
+						}
+						jsonText += tempStr;
+						tempStr.clear();
+					}
+					continue;
 				}
+				tempStr.push_back(ndJsonText[i]);
+			}
+			if (tempStr.empty() == false) {
+				if (!isFirst) {
+					jsonText.push_back(',');
+					isFirst = false;
+				}
+				jsonText += tempStr;
 			}
 			jsonText += " ] ";
 			bool valid = wiz::p.parse_str(jsonText, query, 1).first; // 2? 3? 4? - # of thread.
-			if (!valid) { return; }
+			if (!valid) { 
+				return;
+			}
 
 			uint64_t sz = query.Get().as_array()->get_data_size();
 			for (int i = 0; i < sz; ++i) {

@@ -399,9 +399,9 @@ protected:
 				if (isspace(ndJsonText[i])) {
 					if (ndJsonText[i] == '\n' || ndJsonText[i] == '\0') {
 						if (!isFirst) {
-							jsonText.back() = ','; // no trailing white enterkey!!! - warn..
-							isFirst = false;
+							jsonText.push_back(','); // no trailing white enterkey!!! - warn..
 						}
+						isFirst = false;
 						jsonText += tempStr;
 						tempStr.clear();
 					}
@@ -412,8 +412,8 @@ protected:
 			if (tempStr.empty() == false) {
 				if (!isFirst) {
 					jsonText.push_back(',');
-					isFirst = false;
 				}
+				isFirst = false;
 				jsonText += tempStr;
 			}
 			jsonText += " ] ";

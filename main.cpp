@@ -455,8 +455,10 @@ protected:
 				}
 				// found "find" : [] or "find" : ~~
 				else if (auto idx = x.find(claujson::_Value("find")); idx != claujson::Structured::npos) {
-					if (x.as_object()->get_value_list(idx).is_str()) {
-						FindByKey(x.as_object()->get_value_list(idx));
+					if (x.as_object()->get_value_list(idx).is_primitive()) {
+						if (x.as_object()->get_value_list(idx).is_str()) {
+							FindByKey(x.as_object()->get_value_list(idx));
+						}
 						FindBy_Value(x.as_object()->get_value_list(idx));
 					}
 					else if (x.as_object()->get_value_list(idx).is_array()) {

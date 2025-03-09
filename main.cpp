@@ -1,4 +1,4 @@
-
+ï»¿
 #define _CRT_SECURE_NO_WARNINGS
 
 #ifdef _DEBUG
@@ -55,14 +55,14 @@ namespace wiz {
 	[[nodisgard]]
 	class claujson::_Value Parse(const std::string& str) {
 		claujson::Document data;
-		
+
 		if (auto x = p.parse_str(str, data, 1); x.first) {
 			// success
 		}
 		else { // fail
 			return claujson::_Value(nullptr, false);
 		}
-		
+
 
 		return std::move(data.Get());
 	}
@@ -73,7 +73,7 @@ namespace wiz {
 		if (!data) { // key <- from array?
 			return "";
 		}
-	
+
 		bool err = false;
 
 		switch (data.type()) {
@@ -93,7 +93,7 @@ namespace wiz {
 			result += std::to_string(data.get_unsigned_integer());
 			break;
 		case claujson::_ValueType::BOOL:
-			result += data.get_boolean()? "true" : "false";
+			result += data.get_boolean() ? "true" : "false";
 			break;
 		case claujson::_ValueType::NULL_:
 			result += "null";
@@ -104,9 +104,9 @@ namespace wiz {
 		}
 		return result;
 	}
-	
-	
-	inline int64_t GetIdx(claujson::Structured* ut, int64_t position, int64_t start) {
+
+
+	inline int64_t GetIdx(claujson::StructuredPtr ut, int64_t position, int64_t start) {
 		return start + position;
 	}
 
@@ -115,7 +115,7 @@ namespace wiz {
 		return x > y ? x : y;
 	}
 
-	std::string _ToStringEx(claujson::Structured* ut, long long start, long long& count, long long count_limit) {
+	std::string _ToStringEx(claujson::StructuredPtr ut, long long start, long long& count, long long count_limit) {
 
 		if (count >= count_limit) {
 			return std::string();
@@ -124,31 +124,31 @@ namespace wiz {
 		std::string str;
 
 		// key = data, key = { }, data, { }, ...
-		for (int i = start; i < ut->get_data_size() && count < count_limit; ++i) {
+		for (int i = start; i < ut.get_data_size() && count < count_limit; ++i) {
 			++count;
 
-			if (ut->is_object()) {
+			if (ut.is_object()) {
 				//str += "\"";
-				str += ToString(ut->get_const_key_list(i));
+				str += ToString(ut.get_const_key_list(i));
 				str += " : ";
 			}
 
-			if (ut->get_value_list(i).is_object()) {
+			if (ut.get_value_list(i).is_object()) {
 				str += " { ";
 
-				str += _ToStringEx(ut->get_value_list(i).as_object(), 0, count, count_limit);
-				if (ut->get_value_list(i).is_object()) {
+				str += _ToStringEx(ut.get_value_list(i).as_object(), 0, count, count_limit);
+				if (ut.get_value_list(i).is_object()) {
 					str += " } ";
 				}
 				else {
 					str += " ] ";
 				}
 			}
-			else if(ut->get_value_list(i).is_array()) {
+			else if (ut.get_value_list(i).is_array()) {
 				str += " [ ";
 
-				str += _ToStringEx(ut->get_value_list(i).as_array(), 0, count, count_limit);
-				if (ut->get_value_list(i).is_object()) {
+				str += _ToStringEx(ut.get_value_list(i).as_array(), 0, count, count_limit);
+				if (ut.get_value_list(i).is_object()) {
 					str += " } ";
 				}
 				else {
@@ -157,15 +157,15 @@ namespace wiz {
 			}
 			else {
 				// key = data.
-				if (ut->is_object()) {
-					str += ToString(ut->get_value_list(i));
+				if (ut.is_object()) {
+					str += ToString(ut.get_value_list(i));
 				}
 				else {
-					str += ToString(ut->get_value_list(i));
+					str += ToString(ut.get_value_list(i));
 				}
 			}
 
-			if (i + 1 < ut->get_data_size() && count < count_limit) {
+			if (i + 1 < ut.get_data_size() && count < count_limit) {
 				str += " , ";
 			}
 
@@ -175,12 +175,12 @@ namespace wiz {
 		return str;
 	}
 
-std::string ToStringEx(claujson::Structured* ut, long long start, bool& hint) {
-	long long count = 0;
-	std::string result = _ToStringEx(ut, start, count, 256);
-	hint = count >= 256;
-	return result;
-}
+	std::string ToStringEx(claujson::StructuredPtr ut, long long start, bool& hint) {
+		long long count = 0;
+		std::string result = _ToStringEx(ut, start, count, 256);
+		hint = count >= 256;
+		return result;
+	}
 }
 
 
@@ -259,8 +259,8 @@ protected:
 
 protected:
 	// parent`s info?
-	wiz::SmartPtr<claujson::Structured> global;
-	claujson::Structured** now;
+	wiz::SmartPtr2<claujson::StructuredPtr> global;
+	claujson::StructuredPtr now;
 	int* ptr_dataViewListCtrlNo;
 	long long* ptr_position;
 
@@ -291,7 +291,7 @@ protected:
 			}
 		}
 
-		(*now)->add_array_element(claujson::_Value(result));
+		(now).add_array_element(claujson::_Value(result));
 	}
 
 	//
@@ -300,29 +300,29 @@ protected:
 			return;
 		}
 
-		auto sz = x.as_structured_ptr()->get_data_size();
+		auto sz = x.as_structured_ptr().get_data_size();
 		for (uint64_t i = 0; i < sz; ++i) {
 			if (key.is_str()) {
 				// found key...
-				if (const auto& x_key = x.as_structured_ptr()->get_key_list(i); x_key && x_key.get_string() == key.get_string()) {
+				if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.get_string()) {
 					AddNow(dirVec);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
-					if (const auto& x_key = x.as_structured_ptr()->get_key_list(i); x_key && x_key.get_string() == key.as_array()->get_value_list(j).get_string()) {
+					if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.as_array()->get_value_list(j).get_string()) {
 						AddNow(dirVec);
 						break;
 					}
 				}
 			}
-			if (x.as_structured_ptr()->is_user_type()) {
+			if (x.as_structured_ptr().is_user_type()) {
 				dirVec.push_back(i);
 				if (x.is_object()) {
 					dirVec.back() *= -1;
 				}
-				_FindByKey(x.as_structured_ptr()->get_value_list(i), key, dirVec);
+				_FindByKey(x.as_structured_ptr().get_value_list(i), key, dirVec);
 				dirVec.pop_back();
 			}
 		}
@@ -333,30 +333,30 @@ protected:
 			return;
 		}
 		
-		auto sz = x.as_structured_ptr()->get_data_size();
+		auto sz = x.as_structured_ptr().get_data_size();
 		for (uint64_t i = 0; i < sz; ++i) {
 			// found key...
 			if (key.is_primitive()) {
 				// found key...
-				if (const auto& x_value = x.as_structured_ptr()->get_value_list(i); x_value && x_value == key) {
+				if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key) {
 					AddNow(dirVec);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
-					if (const auto& x_value = x.as_structured_ptr()->get_value_list(i); x_value && x_value == key.as_array()->get_value_list(j)) {
+					if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key.as_array()->get_value_list(j)) {
 						AddNow(dirVec);
 						break;
 					}
 				}
 			}
-			if (x.as_structured_ptr()->is_user_type()) {
+			if (x.as_structured_ptr().is_user_type()) {
 				dirVec.push_back(i);
 				if (x.is_object()) {
 					dirVec.back() *= -1;
 				}
-				_FindBy_Value(x.as_structured_ptr()->get_value_list(i), key, dirVec);
+				_FindBy_Value(x.as_structured_ptr().get_value_list(i), key, dirVec);
 				dirVec.pop_back();
 			}
 		}
@@ -378,11 +378,11 @@ protected:
 	virtual void m_code_run_buttonOnButtonClick(wxCommandEvent& event) {
 		
 		try {
-			if (now && (*now)) {
-				delete* now; *now = nullptr; 
+			if (now) {
+				now.Delete();
 			}
-			(*now) = new (std::nothrow) claujson::Array();
-			if (*now == nullptr) {
+			(now) = new (std::nothrow) claujson::Array();
+			if (now == nullptr) {
 				return;
 			}
 
@@ -430,7 +430,7 @@ protected:
 				}
 				
 				// found "find_by_key" : [ ] or "find_by_key" : ~~
-				if (auto idx = x.find(claujson::_Value("find_by_key")); idx != claujson::Structured::npos) {
+				if (auto idx = x.find(claujson::_Value("find_by_key")); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_str()) {
 						FindByKey(x.as_object()->get_value_list(idx));
 					}
@@ -442,7 +442,7 @@ protected:
 					}
 				}
 				// found "find_by_value" : [ ] or "find_by_value" : ~~
-				else if (auto idx = x.find(claujson::_Value("find_by_value")); idx != claujson::Structured::npos) {
+				else if (auto idx = x.find(claujson::_Value("find_by_value")); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_primitive()) {
 						FindBy_Value(x.as_object()->get_value_list(idx));
 					}
@@ -454,7 +454,7 @@ protected:
 					}
 				}
 				// found "find" : [] or "find" : ~~
-				else if (auto idx = x.find(claujson::_Value("find")); idx != claujson::Structured::npos) {
+				else if (auto idx = x.find(claujson::_Value("find")); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_primitive()) {
 						if (x.as_object()->get_value_list(idx).is_str()) {
 							FindByKey(x.as_object()->get_value_list(idx));
@@ -479,17 +479,21 @@ protected:
 
 public:
 
-	LangFrame(claujson::Structured** now, int* dataViewListCtrlNo,
+	LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
 		long long *position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
-		wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl, wiz::SmartPtr<claujson::Structured> global, int mode, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(770, 381), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+		wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl,
+		wiz::SmartPtr2<claujson::StructuredPtr> global, int mode, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, 
+		const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(770, 381), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	~LangFrame();
 
 };
 
-LangFrame::LangFrame(claujson::Structured** now, int* dataViewListCtrlNo,
+LangFrame::LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
 	long long* position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
-	wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl, wiz::SmartPtr<claujson::Structured> global, int mode, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style),
+	wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl,
+	wiz::SmartPtr2<claujson::StructuredPtr> global, int mode, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, 
+	const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style),
 	ptr_dataViewListCtrlNo(dataViewListCtrlNo), ptr_position(position), textCtrl(textCtrl), global(global), mode(mode)
 {
 	m_dataViewListCtrl[0] = m_dataViewListCtrl1;
@@ -561,8 +565,8 @@ LangFrame::LangFrame(claujson::Structured** now, int* dataViewListCtrlNo,
 
 LangFrame::~LangFrame()
 {
-	if (now && (*now)) {
-		delete* now; *now = nullptr; 
+	if (now) {
+		now.Delete();
 	}
 
 	// Disconnect Events
@@ -573,8 +577,8 @@ LangFrame::~LangFrame()
 class ChangeWindow : public wxDialog
 {
 private:
-	wiz::SmartPtr<claujson::Structured> ut; 
-	bool isStructured; // ut(true) or it(false)
+	claujson::StructuredPtr ut; 
+	bool isStructuredPtr; // ut(true) or it(false)
 	int idx; // ut-idx or it-idx. or ilist idx(type == insert)
 	int type; // change 1, insert 2
 	const int mode;
@@ -590,7 +594,7 @@ protected:
 
 		try {
 
-			if (1 == type && !isStructured) { // change
+			if (1 == type && !isStructuredPtr) { // change
 				claujson::_Value x = wiz::Parse(var);
 				claujson::_Value y = wiz::Parse(val);
 
@@ -598,34 +602,34 @@ protected:
 					return; // error.
 				}
 
-				if (x && x.is_str() && ut->is_object() && y.is_primitive()) {
+				if (x && x.is_str() && ut.is_object() && y.is_primitive()) {
 					if (idx != -1) {
-						ut->change_key(idx, std::move(x));
-						ut->get_value_list(idx) = std::move(y);
+						ut.change_key(idx, std::move(x));
+						ut.get_value_list(idx) = std::move(y);
 					}
 				}
-				else if (!x && ut->is_array() && y.is_primitive()) {
+				else if (!x && ut.is_array() && y.is_primitive()) {
 					if (idx != -1) {
-						ut->get_value_list(idx) = std::move(y);
+						ut.get_value_list(idx) = std::move(y);
 					}
 				}
 				else {
 					return; // error
 				}
 			}
-			else if (1 == type) { // change && isStructured
+			else if (1 == type) { // change && isStructuredPtr
 				claujson::_Value x = wiz::Parse(var);
 				
-				if (x && x.is_str() && ut->is_object()) {
-					ut->change_key(idx, std::move(x));
+				if (x && x.is_str() && ut.is_object()) {
+					ut.change_key(idx, std::move(x));
 				}
-				else if (x && ut->is_array()) {
+				else if (x && ut.is_array()) {
 					return;
 				}
 			}
 			else if (2 == type) { // insert
 				 
-				if (mode == 1 && !ut->empty()) { // case json is only one primitive.
+				if (mode == 1 && !ut.empty()) { // case json is only one primitive.
 					return; 
 				}
 
@@ -636,11 +640,11 @@ protected:
 					return; // error
 				}
 
-				if (x.is_str() && ut->is_object()) {
-					ut->add_object_element(std::move(x), std::move(y));
+				if (x.is_str() && ut.is_object()) {
+					ut.add_object_element(std::move(x), std::move(y));
 				}
-				else if (!x && (ut->is_array() || (ut->get_parent() == nullptr && ut->empty()))) {
-					ut->add_array_element(std::move(y));
+				else if (!x && (ut.is_array() || (ut.get_parent() == nullptr && ut.empty()))) {
+					ut.add_array_element(std::move(y));
 				}
 				else {
 					return; // error
@@ -656,14 +660,16 @@ protected:
 	}
 
 public:
-	ChangeWindow(wxWindow* parent, const int mode, wiz::SmartPtr<claujson::Structured> ut, bool isStructured, int idx, int type,
-		wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
+	ChangeWindow(wxWindow* parent, const int mode, claujson::StructuredPtr ut, bool isStructuredPtr, int idx, int type,
+		wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(580, 198),
+		long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	~ChangeWindow();
 };
 
-ChangeWindow::ChangeWindow(wxWindow* parent, const int mode, wiz::SmartPtr<claujson::Structured> ut, bool isStructured, int idx, int type, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
-	: ut(ut), mode(mode), isStructured(isStructured), idx(idx), type(type), wxDialog(parent, id, "change/insert window", pos, size, style)
+ChangeWindow::ChangeWindow(wxWindow* parent, const int mode, claujson::StructuredPtr ut, bool isStructuredPtr, int idx, int type,
+	wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+	: ut(ut), mode(mode), isStructuredPtr(isStructuredPtr), idx(idx), type(type), wxDialog(parent, id, "change/insert window", pos, size, style)
 {
 
 	wxBoxSizer* bSizer4;
@@ -679,12 +685,12 @@ ChangeWindow::ChangeWindow(wxWindow* parent, const int mode, wiz::SmartPtr<clauj
 	bSizer4->Add(ok, 0, wxALL | wxEXPAND, 5);
 
 	if (1 == type) {
-		if (isStructured) {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_const_key_list(idx))));
+		if (isStructuredPtr) {
+			var_text->SetValue(Convert(wiz::ToString(ut.get_const_key_list(idx))));
 		}
 		else {
-			var_text->SetValue(Convert(wiz::ToString(ut->get_const_key_list(idx))));
-			val_text->SetValue(Convert(wiz::ToString(ut->get_value_list(idx))));
+			var_text->SetValue(Convert(wiz::ToString(ut.get_const_key_list(idx))));
+			val_text->SetValue(Convert(wiz::ToString(ut.get_value_list(idx))));
 		}
 	}
 
@@ -713,8 +719,8 @@ private:
 
 	bool isMain = false;
 
-	wiz::SmartPtr<claujson::Structured> global;
-	claujson::Structured* now = nullptr;
+	wiz::SmartPtr2<claujson::StructuredPtr> global;
+	claujson::StructuredPtr now = nullptr;
 
 	int dataViewListCtrlNo = -1;
 	long long position = -1;
@@ -771,17 +777,17 @@ private:
 	}
 
 	// if fail, returns empty string.
-	std::string MakeCompleteJsonText(claujson::Structured* now, int start, const std::string& incomplete_text) {
+	std::string MakeCompleteJsonText(claujson::StructuredPtr now, int start, const std::string& incomplete_text) {
 		std::string complete_json;
 		complete_json.reserve(512);
 
 		std::vector<int> is_array; is_array.reserve(512);
 		
-		if (now->is_array()) {
+		if (now.is_array()) {
 			complete_json = "[";
 			is_array.push_back('[');
 		}
-		else if (now->is_object()) {
+		else if (now.is_object()) {
 			complete_json = "{";
 			is_array.push_back('{');
 		}
@@ -858,7 +864,7 @@ private:
 	}
 
 	// RefreshText with position <- 0
-	void RefreshText(wiz::SmartPtr<claujson::Structured> now) {
+	void RefreshText(claujson::StructuredPtr now) {
 		wxDataViewListCtrl* ctrl[4];
 		ctrl[0] = m_dataViewListCtrl1;
 		ctrl[1] = m_dataViewListCtrl2;
@@ -873,7 +879,7 @@ private:
 		textCtrl->ChangeValue(text);
 	}
 
-	void RefreshText2(wiz::SmartPtr<claujson::Structured> now) {
+	void RefreshText2(claujson::StructuredPtr now) {
 		wxDataViewListCtrl* ctrl[4];
 		ctrl[0] = m_dataViewListCtrl1;
 		ctrl[1] = m_dataViewListCtrl2;
@@ -898,7 +904,7 @@ private:
 	void changedEvent() {
 		//m_code_run_result->ChangeValue(wxT("changed"));
 		dir_text->SetLabelText(wxT(""));
-		now = global;
+		now = *global;
 		dir_vec.clear();
 
 		hint = false;
@@ -915,7 +921,7 @@ private:
 	
 		*changed = false;
 	}
-	void RefreshTable(wiz::SmartPtr<claujson::Structured> now)
+	void RefreshTable(claujson::StructuredPtr now)
 	{
 		m_dataViewListCtrl1->DeleteAllItems();
 		m_dataViewListCtrl2->DeleteAllItems();
@@ -948,10 +954,10 @@ private:
 
 
 	}
-	void AddData(wiz::SmartPtr<claujson::Structured> global, int start)
+	void AddData(claujson::StructuredPtr global, int start)
 	{
 		{
-			int size = global->get_data_size();
+			int size = global.get_data_size();
 
 			if (size > part_size) {
 				if (size > part_size * part.back() && size <= part_size * (part.back() + 1)) {
@@ -974,17 +980,17 @@ private:
 			for ( ; i < size_per_unit; ++i) {
 				value.clear();
 
-				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
+				if (global.get_value_list(i).is_structured()) {
+					if (wiz::ToString(global.get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
 					}
-					if (global->get_value_list(i).is_object()) {
+					if (global.get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else if (global->get_value_list(i).is_array()) {
+					else if (global.get_value_list(i).is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
 					else {
@@ -992,13 +998,13 @@ private:
 					}
 				}
 				else { // data2
-					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+					if (global.is_object()) {
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 
 				}
@@ -1009,17 +1015,17 @@ private:
 			for ( ; i < size_per_unit * 2; ++i) {
 				value.clear();
 
-				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
+				if (global.get_value_list(i).is_structured()) {
+					if (wiz::ToString(global.get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
 					}
-					if (global->get_value_list(i).is_object()) {
+					if (global.get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else if (global->get_value_list(i).is_array()) {
+					else if (global.get_value_list(i).is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
 					else {
@@ -1027,13 +1033,13 @@ private:
 					}
 				}
 				else { // data2
-					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+					if (global.is_object()) {
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 
 				}
@@ -1044,17 +1050,17 @@ private:
 			}
 			for ( ; i < size_per_unit * 3; ++i) {
 				value.clear();
-				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
+				if (global.get_value_list(i).is_structured()) {
+					if (wiz::ToString(global.get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
 					}
-					if (global->get_value_list(i).is_object()) {
+					if (global.get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else if (global->get_value_list(i).is_array()) {
+					else if (global.get_value_list(i).is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
 					else {
@@ -1062,13 +1068,13 @@ private:
 					}
 				}
 				else { // data2
-					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+					if (global.is_object()) {
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 
 				}
@@ -1080,17 +1086,17 @@ private:
 			for ( ; i < last_size; ++i) {
 				value.clear();
 
-				if (global->get_value_list(i).is_structured()) {
-					if (wiz::ToString(global->get_const_key_list(i)).empty()) {
+				if (global.get_value_list(i).is_structured()) {
+					if (wiz::ToString(global.get_const_key_list(i)).empty()) {
 						value.push_back(wxVariant(wxT("")));
 					}
 					else {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
 					}
-					if (global->get_value_list(i).is_object()) {
+					if (global.get_value_list(i).is_object()) {
 						value.push_back(wxVariant(wxT("{}")));
 					}
-					else if (global->get_value_list(i).is_array()) {
+					else if (global.get_value_list(i).is_array()) {
 						value.push_back(wxVariant(wxT("[]")));
 					}
 					else {
@@ -1098,13 +1104,13 @@ private:
 					}
 				}
 				else { // data2
-					if (global->is_object()) {
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_const_key_list(i)))));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+					if (global.is_object()) {
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_const_key_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 					else {
 						value.push_back(wxVariant(wxT("")));
-						value.push_back(wxVariant(Convert(wiz::ToString(global->get_value_list(i)))));
+						value.push_back(wxVariant(Convert(wiz::ToString(global.get_value_list(i)))));
 					}
 
 				}
@@ -1208,18 +1214,18 @@ protected:
 					// todo!, mode? state?
 					mode = 1;
 
-					global = wiz::SmartPtr<claujson::Structured>(new claujson::Array());
+					global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
 
 					global->add_array_element(std::move(ut));
 				}
 				else {
 					mode = 0;
 
-					global = wiz::SmartPtr<claujson::Structured>(new claujson::Array());
+					global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
 
 					global->add_array_element(std::move(ut));
 
-					//global = wiz::SmartPtr<claujson::Structured>(ut.as_structured_ptr());
+					//global = wiz::SmartPtr2<claujson::StructuredPtr>(ut.as_structured_ptr());
 				}
 				
 				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Success! file is UTF-8"));
@@ -1229,10 +1235,10 @@ protected:
 				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Failed!"));
 			}
 
-			now = global;
+			now = *global;
 
 			dataViewListCtrlNo = -1;
-			position = now->get_data_size() > 0? 0 : -1;
+			position = now.get_data_size() > 0? 0 : -1;
 
 			run_count = 0;
 
@@ -1271,9 +1277,9 @@ protected:
 
 		now = nullptr;
 
-		global = wiz::SmartPtr<claujson::Structured>(new claujson::Array());
+		global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
 
-		now = global;
+		now = *global;
 
 		dataViewListCtrlNo = -1;
 		
@@ -1318,7 +1324,7 @@ protected:
 					claujson::Array* temp = new claujson::Array();
 
 					for (int64_t i = 0; i < arr->get_data_size(); ++i) {
-						temp->add_array_element(std::move(arr->get_value_list(i)));
+						temp->add_element(std::move(arr->get_value_list(i)));
 					}
 
 					claujson::_Value temp_value = claujson::_Value(temp);
@@ -1328,7 +1334,7 @@ protected:
 					arr->clear();
 
 					for (int64_t i = 0; i < temp->get_data_size(); ++i) {
-						arr->add_array_element(std::move(temp->get_value_list(i)));
+						arr->add_element(std::move(temp->get_value_list(i)));
 					}
 
 					delete temp;
@@ -1338,7 +1344,7 @@ protected:
 					claujson::Object* temp = new claujson::Object();
 
 					for (int64_t i = 0; i < obj->get_data_size(); ++i) {
-						temp->add_object_element(obj->get_const_key_list(i).clone(), std::move(obj->get_value_list(i)));
+						temp->add_element(obj->get_const_key_list(i).clone(), std::move(obj->get_value_list(i)));
 					}
 
 					claujson::_Value temp_value = claujson::_Value(temp);
@@ -1348,7 +1354,7 @@ protected:
 					obj->clear();
 
 					for (int64_t i = 0; i < temp->get_data_size(); ++i) {
-						obj->add_object_element(temp->get_const_key_list(i).clone(), std::move(temp->get_value_list(i)));
+						obj->add_element(temp->get_const_key_list(i).clone(), std::move(temp->get_value_list(i)));
 					}
 
 					delete temp;
@@ -1383,13 +1389,13 @@ protected:
 		//	return;
 		//}
 
-		int idx = now->get_data_size();// / 4)* dataViewListCtrlNo;
+		int idx = now.get_data_size();// / 4)* dataViewListCtrlNo;
 		
-		bool isStructured = false; // now->get_value_list(idx)->is_user_type();
+		bool isStructuredPtr = false; // now.get_value_list(idx)->is_user_type();
 
 		//if (dataViewListCtrlNo == -1) { return; }
 
-		ChangeWindow* changeWindow = new ChangeWindow(this, mode, now, isStructured, idx, 2);
+		ChangeWindow* changeWindow = new ChangeWindow(this, mode, now, isStructuredPtr, idx, 2);
 
 		changeWindow->ShowModal();
 
@@ -1406,11 +1412,11 @@ protected:
 		}
 		if (-1 == position) { return; }
 
-		int idx = wiz::GetIdx(now, position, (now->get_data_size() / 4) * dataViewListCtrlNo);
+		int idx = wiz::GetIdx(now, position, (now.get_data_size() / 4) * dataViewListCtrlNo);
 
-		bool isStructured = now->get_value_list(idx).is_structured();
+		bool isStructuredPtr = now.get_value_list(idx).is_structured();
 
-		ChangeWindow* changeWindow = new ChangeWindow(this, mode, now, isStructured,
+		ChangeWindow* changeWindow = new ChangeWindow(this, mode, now, isStructuredPtr,
 			idx, 1);
 
 		changeWindow->ShowModal();
@@ -1428,22 +1434,22 @@ protected:
 		}
 		if (-1 == position) { return; }
 		
-		int idx = wiz::GetIdx(now, position, ((now->get_data_size()) / 4) * dataViewListCtrlNo);
+		int idx = wiz::GetIdx(now, position, ((now.get_data_size()) / 4) * dataViewListCtrlNo);
 		
 		int type = 1;
 
-		bool isStructured = now->get_value_list(idx).is_structured();
+		bool isStructuredPtr = now.get_value_list(idx).is_structured();
 
-		if (isStructured) {
-			now->erase(idx, true);
+		if (isStructuredPtr) {
+			now.erase(idx, true);
 		}
 		else {
-			if (now->is_object()) {
-				now->erase(idx + 1, true);
-				now->erase(idx, true);
+			if (now.is_object()) {
+				now.erase(idx + 1, true);
+				now.erase(idx, true);
 			}
 			else {
-				now->erase(idx, true);
+				now.erase(idx, true);
 			}
 		}
 		RefreshText(now);
@@ -1454,12 +1460,12 @@ protected:
 			changedEvent();
 			if (!isMain) { return; }
 		}
-		if (now && now->get_parent()) {
+		if (now && now.get_parent()) {
 			part.pop_back();
 
-			RefreshText(now->get_parent());
-			RefreshTable(now->get_parent());
-			now = now->get_parent();
+			RefreshText(now.get_parent());
+			RefreshTable(now.get_parent());
+			(now) = now.get_parent();
 			BackDir();
 		}
 	}
@@ -1493,7 +1499,7 @@ protected:
 				dir_vec.clear(); // .pop_back();
 				//}
 				
-				dir = "";  now = global; part.push_back(0);
+				dir = "";  now = *global; part.push_back(0);
 				
 				for (int i = 0; i < dir_vec_backup.size(); ++i) {
 
@@ -1505,13 +1511,13 @@ protected:
 						long long idx = std::stoll(name.substr(1, name.size() - 2));
 						long long part_no = idx / part_size;
 
-						if (!(0 <= idx && idx < now->get_data_size())) {
+						if (!(0 <= idx && idx < now.get_data_size())) {
 							changedEvent(); // error fix..
 							dir_vec_backup.clear();
 							return;
 						}
 
-						now = now->get_value_list(idx).as_structured_ptr();
+						(now) = now.get_value_list(idx).as_structured_ptr();
 
 						part.push_back(part_no);
 					}
@@ -1613,7 +1619,7 @@ protected:
 		}
 		dataViewListCtrlNo = 0; position = m_dataViewListCtrl1->GetSelectedRow();
 
-		int size = now->get_data_size() ;
+		int size = now.get_data_size() ;
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1639,12 +1645,12 @@ protected:
 			}
 			position = -1;
 		}
-		else if (NK_ENTER == event.GetKeyCode() && position >= 0 && now->get_value_list(wiz::GetIdx(now, position, part.back() * part_size)).is_structured()) { // is_user_type <- position < now->get_data_size()
-			now = now->get_value_list(wiz::GetIdx(now, position, part.back() * part_size)).as_structured_ptr();
+		else if (NK_ENTER == event.GetKeyCode() && position >= 0 && now.get_value_list(wiz::GetIdx(now, position, part.back() * part_size)).is_structured()) { // is_user_type <- position < now.get_data_size()
+			now = now.get_value_list(wiz::GetIdx(now, position, part.back() * part_size)).as_structured_ptr();
 			
 
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object()? "{" + std::to_string(wiz::GetIdx(now, position , part.back() * part_size))
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object()? "{" + std::to_string(wiz::GetIdx(now, position , part.back() * part_size))
 				 + "}" : "[" + std::to_string(wiz::GetIdx(now, position, part.back() * part_size))  + "]"), part);
 
 
@@ -1652,8 +1658,8 @@ protected:
 			RefreshTable(now);
 
 		}
-		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
-			now = now->get_parent();
+		else if (NK_BACKSPACE == event.GetKeyCode() && now.get_parent() != nullptr) {
+			now = now.get_parent();
 			part.pop_back();
 			RefreshText(now);
 			RefreshTable(now);
@@ -1670,11 +1676,11 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{position--;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{position++;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
@@ -1696,7 +1702,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1723,19 +1729,19 @@ protected:
 			position = -1;
 		}
 		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 1 && position >= 0 &&
-				now->get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)).as_structured_ptr();
+				now.get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)).as_structured_ptr();
 
 		
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size)
 				)  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) )  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
 		}
-		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
-			now = now->get_parent();
+		else if (NK_BACKSPACE == event.GetKeyCode() && now.get_parent() != nullptr) {
+			now = now.get_parent();
 			part.pop_back();
 			RefreshText(now);
 			RefreshTable(now);
@@ -1752,7 +1758,7 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{position--;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{ position++;
@@ -1781,7 +1787,7 @@ protected:
 		}
 
 
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -1808,20 +1814,20 @@ protected:
 			position = -1;
 		}
 		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 2 && position >= 0
-				&& now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ).as_structured_ptr();
+				&& now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ).as_structured_ptr();
 			
 
 			
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) 
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size)
 				)  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
 		}
-		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
-			now = now->get_parent();
+		else if (NK_BACKSPACE == event.GetKeyCode() && now.get_parent() != nullptr) {
+			now = now.get_parent();
 			part.pop_back();
 
 			RefreshText(now);
@@ -1844,7 +1850,7 @@ protected:
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{position++;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
@@ -1867,7 +1873,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 		
 
 		if (size > part_size) {
@@ -1894,20 +1900,20 @@ protected:
 			position = -1;
 		}
 		else if (NK_ENTER == event.GetKeyCode() && dataViewListCtrlNo == 3 && position >= 0
-			&& now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).as_structured_ptr();
+			&& now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).as_structured_ptr();
 
 		
 
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
 		}
-		else if (NK_BACKSPACE == event.GetKeyCode() && now->get_parent() != nullptr) {
-			now = now->get_parent();
+		else if (NK_BACKSPACE == event.GetKeyCode() && now.get_parent() != nullptr) {
+			now = now.get_parent();
 			part.pop_back();
 
 			RefreshText(now);
@@ -1926,11 +1932,11 @@ protected:
 
 			if (WXK_UP == event.GetKeyCode() && dataViewListCtrlNo > -1 && position > 0)//< ctrl[dataViewListCtrlNo]->GetItemCount())
 			{position--;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_DOWN == event.GetKeyCode() && dataViewListCtrlNo > -1 && position >= 0 && position < ctrl[dataViewListCtrlNo]->GetItemCount() - 1)
 			{position++;
-				RefreshText2(now); 
+				RefreshText2(now);
 			}
 			else if (WXK_LEFT == event.GetKeyCode() && dataViewListCtrlNo > 0 && position >= 0 && position < ctrl[dataViewListCtrlNo - 1]->GetItemCount())
 			{
@@ -1952,7 +1958,7 @@ protected:
 	// Part - very long? array or object.
 	virtual void nextOnButtonClick(wxCommandEvent& event) { 
 		if (now) {
-			long long length = now->get_data_size();
+			long long length = now.get_data_size();
 
 			if (!part.empty() && length > (part.back() + 1) * part_size) {
 				part.back()++;
@@ -1999,7 +2005,7 @@ protected:
 		if (*changed) { changedEvent();
 			if (!isMain) { return; }
 		}
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -2013,10 +2019,10 @@ protected:
 		int length = size;
 		dataViewListCtrlNo = 0; position = m_dataViewListCtrl1->GetSelectedRow();
 
-		if (position >= 0 && now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + (length) / 4 * 0 + part.back() * part_size).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + part.back() * part_size).as_structured_ptr();
+		if (position >= 0 && now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + (length) / 4 * 0 + part.back() * part_size).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) + part.back() * part_size).as_structured_ptr();
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + 
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + 
 					std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 0 + part.back() * part_size) )  + "]"), part);
 
@@ -2030,7 +2036,7 @@ protected:
 		if (*changed) { changedEvent();
 			if (!isMain) { return; }
 		}
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 		
 
 		if (size > part_size) {
@@ -2044,12 +2050,12 @@ protected:
 
 		int length = size;
 		dataViewListCtrlNo = 1; position = m_dataViewListCtrl2->GetSelectedRow();
-		if (dataViewListCtrlNo == 1 && position >= 0 && now->get_value_list(wiz::GetIdx(now, position , (length) / 4 + part.back() * part_size) ).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) ).as_structured_ptr();
+		if (dataViewListCtrlNo == 1 && position >= 0 && now.get_value_list(wiz::GetIdx(now, position , (length) / 4 + part.back() * part_size) ).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 + part.back() * part_size) ).as_structured_ptr();
 			
 			
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size) ) + "}" :
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size) ) + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 1 + part.back() * part_size))  + "]"), part);
 			
 
@@ -2062,7 +2068,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 		
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -2075,10 +2081,10 @@ protected:
 
 		int length = size;
 		dataViewListCtrlNo = 2; position = m_dataViewListCtrl3->GetSelectedRow();
-		if (dataViewListCtrlNo == 2 && position >= 0 && now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size)).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position,  (length) / 4 * 2 + part.back() * part_size)).as_structured_ptr();	
+		if (dataViewListCtrlNo == 2 && position >= 0 && now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size)).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position,  (length) / 4 * 2 + part.back() * part_size)).as_structured_ptr();
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))  + "}" :
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) ) + "]"), part);
 
 			RefreshText(now);
@@ -2091,7 +2097,7 @@ protected:
 			if (!isMain) { return; }
 		}
 
-		int size = now->get_data_size();
+		int size = now.get_data_size();
 
 		if (size > part_size) {
 			if (size >= part_size * part.back() && size < part_size * (part.back() + 1)) {
@@ -2105,12 +2111,12 @@ protected:
 		long long length = size;
 
 		dataViewListCtrlNo = 3; position = m_dataViewListCtrl4->GetSelectedRow();
-		if (dataViewListCtrlNo == 3 && position >= 0 && now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).is_structured()) {
-			now = now->get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).as_structured_ptr();
+		if (dataViewListCtrlNo == 3 && position >= 0 && now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).is_structured()) {
+			now = now.get_value_list(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size)).as_structured_ptr();
 			
 		
 
-			EnterDir(wiz::ToString(claujson::_Value(now)) + (now->get_parent()->is_object() ? "{" + 
+			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + 
 				std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "}" :
 				"[" + std::to_string(wiz::GetIdx(now, position, (length / 4 * 3) + part.back() * part_size))  + "]"), part);
 
@@ -2125,8 +2131,8 @@ protected:
 		if (*changed) {
 			changedEvent();
 		}
-		if (now && now->get_parent()) {
-			now = now->get_parent();
+		if (now && now.get_parent()) {
+			now = now.get_parent();
 			part.pop_back();
 			RefreshText(now);
 			RefreshTable(now);
@@ -2137,8 +2143,8 @@ protected:
 		if (*changed) {
 			changedEvent();
 		}
-		if (now && now->get_parent()) {
-			now = now->get_parent();
+		if (now && now.get_parent()) {
+			now = now.get_parent();
 			part.pop_back();
 			RefreshText(now);
 			RefreshTable(now);
@@ -2149,8 +2155,8 @@ protected:
 		if (*changed) {
 			changedEvent();
 		}
-		if (now && now->get_parent()) {
-			now = now->get_parent();
+		if (now && now.get_parent()) {
+			now = now.get_parent();
 			part.pop_back();
 			RefreshText(now);
 			RefreshTable(now);
@@ -2161,8 +2167,8 @@ protected:
 		if (*changed) {
 			changedEvent();
 		}
-		if (now && now->get_parent()) {
-			now = now->get_parent();
+		if (now && now.get_parent()) {
+			now = now.get_parent();
 			part.pop_back();
 
 			RefreshText(now);
@@ -2362,7 +2368,7 @@ protected:
 			return;
 		}
 
-		LangFrame* frame = new LangFrame(&this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
+		LangFrame* frame = new LangFrame(this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
 			m_dataViewListCtrl3, m_dataViewListCtrl4, textCtrl, dir_text, this->global, mode, this);
 		
 		frame->Show(true);
@@ -2373,7 +2379,7 @@ public:
 	MainFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("ClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, 
 		const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 private:
-	MainFrame(wiz::SmartPtr<bool> changed, int mode, wiz::SmartPtr<claujson::Structured> global, claujson::Structured* now, wxWindow* parent, wxWindowID id = wxID_ANY, 
+	MainFrame(wiz::SmartPtr<bool> changed, int mode, wiz::SmartPtr2<claujson::StructuredPtr> global, claujson::StructuredPtr now, wxWindow* parent, wxWindowID id = wxID_ANY, 
 		const wxString& title = wxT("ClauJson Explorer"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(1024, 512), 
 		long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 public:
@@ -2385,8 +2391,8 @@ public:
 	void FirstFrame() {
 		isMain = true;
 		mode = 1;
-		global = wiz::SmartPtr<claujson::Structured>(new claujson::Array());
-		now = global;
+		global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+		now = *global;
 	}
 
 	// no valid check??
@@ -2437,7 +2443,7 @@ private:
 		}
 	}
 };
-MainFrame::MainFrame(wiz::SmartPtr<bool> changed, int mode, wiz::SmartPtr<claujson::Structured> global, claujson::Structured* now, wxWindow* parent, wxWindowID id,
+MainFrame::MainFrame(wiz::SmartPtr<bool> changed, int mode, wiz::SmartPtr2<claujson::StructuredPtr> global, claujson::StructuredPtr now, wxWindow* parent, wxWindowID id,
 	const wxString& title, const wxPoint& pos, const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style)
 {
 	init(parent, id, title, pos, size, style);
@@ -2538,17 +2544,17 @@ void MainFrame::init(wxWindow* parent, wxWindowID id, const wxString& title, con
 	wxBoxSizer* bSizer2;
 	bSizer2 = new wxBoxSizer(wxHORIZONTAL);
 
-	back_button = new wxButton(this, wxID_ANY, wxT("¡ã"), wxDefaultPosition, wxDefaultSize, 0);
+	back_button = new wxButton(this, wxID_ANY, wxT("â–²"), wxDefaultPosition, wxDefaultSize, 0);
 	back_button->SetFont(wxFont(15, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, wxEmptyString));
 		
 	bSizer2->Add(back_button, 1, wxALL | wxEXPAND, 5);
 	
-	next = new wxButton(this, wxID_ANY, wxT("¢º"), wxDefaultPosition, wxDefaultSize, 0);
+	next = new wxButton(this, wxID_ANY, wxT("â–¶"), wxDefaultPosition, wxDefaultSize, 0);
 	next->SetFont(wxFont(15, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, wxEmptyString));
 
 	bSizer2->Add(next, 0, wxALL | wxEXPAND, 5);
 
-	before = new wxButton(this, wxID_ANY, wxT("¢¸"), wxDefaultPosition, wxDefaultSize, 0);
+	before = new wxButton(this, wxID_ANY, wxT("â—€"), wxDefaultPosition, wxDefaultSize, 0);
 	before->SetFont(wxFont(15, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, wxEmptyString));
 	bSizer2->Add(before, 0, wxALL | wxEXPAND, 5);
 

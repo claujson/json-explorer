@@ -2,7 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #ifdef _DEBUG
-//#include <vld.h>
+
 #endif
 
 
@@ -1203,7 +1203,9 @@ protected:
 				encoding = Encoding::UTF8;
 
 				// remove origin..
-				global.remove(true);
+				if (global->size() > 0) {
+					global->erase(0, true);
+				}
 				now = nullptr;
 
 				//	SetConsoleOutputCP(65001); // for windows
@@ -1214,14 +1216,14 @@ protected:
 					// todo!, mode? state?
 					mode = 1;
 
-					global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+					//global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
 
 					global->add_array_element(std::move(ut));
 				}
 				else {
 					mode = 0;
 
-					global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+					//global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
 
 					global->add_array_element(std::move(ut));
 
@@ -1273,11 +1275,16 @@ protected:
 		//SetConsoleOutputCP(65001); // Windows..
 		//setlocale(LC_ALL, "en_US.UTF-8");
 
-		global.remove(true);
+		//global.remove(true);
 
 		now = nullptr;
 
-		global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+		//global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+
+
+		if (global->size() > 0) {
+			global->erase(0, true);
+		}
 
 		now = *global;
 

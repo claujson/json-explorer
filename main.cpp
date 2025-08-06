@@ -6,7 +6,7 @@
 #endif
 
 
-#include "mimalloc-new-delete.h"
+//#include "mimalloc-new-delete.h"
 
 #include <string>
 #include <algorithm>
@@ -52,19 +52,11 @@ namespace wiz {
 	claujson::parser p;
 	claujson::writer w;
 
+	inline static claujson::Arena const_str_pool;
+
 	[[nodisgard]]
-	class claujson::_Value Parse(const std::string& str) {
-		claujson::Document data;
-
-		if (auto x = p.parse_str(str, data, 1); x.first) {
-			// success
-		}
-		else { // fail
-			return claujson::_Value(nullptr, false);
-		}
-
-
-		return std::move(data.Get());
+	bool Parse(const std::string& str, claujson::Document& d) {
+		return p.parse_str(str, d, 1).first;
 	}
 
 	std::string ToString(const claujson::_Value& data) {
@@ -259,8 +251,9 @@ protected:
 
 protected:
 	// parent`s info?
+
 	wiz::SmartPtr2<claujson::StructuredPtr> global;
-	claujson::StructuredPtr now;
+	claujson::StructuredPtr* now;
 	int* ptr_dataViewListCtrlNo;
 	long long* ptr_position;
 
@@ -273,8 +266,8 @@ protected:
 	//wxTextCtrl* dir_ctrl;
 
 	//
-	void AddNow(const std::vector<int64_t>& dirVec) {
-		std::string result = ""; // dir_result?
+	void AddNow(const std::vector<int64_t>& dirVec, claujson::Arena* pool) {
+		std::string result = "/."; // dir_result?
 
 		for (int i = 0; i < dirVec.size(); ++i) {
 			if (dirVec[i] >= 0) {
@@ -291,11 +284,11 @@ protected:
 			}
 		}
 
-		(now).add_array_element(claujson::_Value(result));
+		(now)->add_array_element(claujson::_Value(pool, result));
 	}
 
 	//
-	void _FindByKey(const claujson::_Value& x, const claujson::_Value& key, std::vector<int64_t>& dirVec) {
+	void _FindByKey(const claujson::_Value& x, const claujson::_Value& key, std::vector<int64_t>& dirVec, claujson::Arena* pool) {
 		if (x.is_primitive()) {
 			return;
 		}
@@ -305,14 +298,14 @@ protected:
 			if (key.is_str()) {
 				// found key...
 				if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.get_string()) {
-					AddNow(dirVec);
+					AddNow(dirVec, pool);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
 					if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.as_array()->get_value_list(j).get_string()) {
-						AddNow(dirVec);
+						AddNow(dirVec, pool);
 						break;
 					}
 				}
@@ -322,13 +315,13 @@ protected:
 				if (x.is_object()) {
 					dirVec.back() *= -1;
 				}
-				_FindByKey(x.as_structured_ptr().get_value_list(i), key, dirVec);
+				_FindByKey(x.as_structured_ptr().get_value_list(i), key, dirVec, pool);
 				dirVec.pop_back();
 			}
 		}
 	}
 
-	void _FindBy_Value(const claujson::_Value& x, const claujson::_Value& key, std::vector<int64_t>& dirVec) {
+	void _FindBy_Value(const claujson::_Value& x, const claujson::_Value& key, std::vector<int64_t>& dirVec, claujson::Arena* pool) {
 		if (x.is_primitive()) {
 			return;
 		}
@@ -339,14 +332,14 @@ protected:
 			if (key.is_primitive()) {
 				// found key...
 				if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key) {
-					AddNow(dirVec);
+					AddNow(dirVec, pool);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
 					if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key.as_array()->get_value_list(j)) {
-						AddNow(dirVec);
+						AddNow(dirVec, pool);
 						break;
 					}
 				}
@@ -356,32 +349,38 @@ protected:
 				if (x.is_object()) {
 					dirVec.back() *= -1;
 				}
-				_FindBy_Value(x.as_structured_ptr().get_value_list(i), key, dirVec);
+				_FindBy_Value(x.as_structured_ptr().get_value_list(i), key, dirVec, pool);
 				dirVec.pop_back();
 			}
 		}
 	}
 
-	void FindByKey(const claujson::_Value& key) {
+	void FindByKey(const claujson::_Value& key, claujson::Arena* pool) {
 		auto& x = global->get_value_list(0);
 		std::vector<int64_t> dirVec{ 0 };
-		_FindByKey(x, key, dirVec);
+		_FindByKey(x, key, dirVec, pool);
 	}
-	void FindBy_Value(const claujson::_Value& value) {
+	void FindBy_Value(const claujson::_Value& value, claujson::Arena* pool) {
 		std::vector<int64_t> dirVec{ 0 };
-		_FindBy_Value(global->get_value_list(0), value, dirVec);
+		_FindBy_Value(global->get_value_list(0), value, dirVec, pool);
 	}
 
+	inline static const claujson::_Value _find = claujson::_Value(&wiz::const_str_pool, "find"sv);
+	inline static const claujson::_Value _find_by_key = claujson::_Value(&wiz::const_str_pool, "find_by_key"sv);
+	inline static const claujson::_Value _find_by_value = claujson::_Value(&wiz::const_str_pool, "find_by_value"sv); 
 
-	// Virtual event handlers, overide them in your derived class
 
 	virtual void m_code_run_buttonOnButtonClick(wxCommandEvent& event) {
 		
 		try {
+			static claujson::Document d;
+			d.GetAllocator()->Clear();
+
 			if (now) {
-				now.Delete();
+				now->Delete();
 			}
-			(now) = new (std::nothrow) claujson::Array();
+			claujson::_Value temp = claujson::Array::Make(nullptr);
+			(*now) = temp.as_array();
 			if (now == nullptr) {
 				return;
 			}
@@ -389,7 +388,9 @@ protected:
 			wxString wxNDJsonText = m_code->GetValue();
 			std::string ndJsonText = Convert(wxNDJsonText);
 			std::string jsonText;
-			claujson::Document query;
+			static claujson::Document query;
+			query.GetAllocator()->Clear();
+
 			std::string tempStr;
 			bool isFirst = true;
 			jsonText.reserve(16 + ndJsonText.size() * 2);
@@ -418,7 +419,7 @@ protected:
 			}
 			jsonText += " ] ";
 			bool valid = wiz::p.parse_str(jsonText, query, 1).first; // 2? 3? 4? - # of thread.
-			if (!valid) { 
+			if (!valid) {
 				return;
 			}
 
@@ -428,42 +429,42 @@ protected:
 				if (!x.is_object()) {
 					continue;
 				}
-				
+
 				// found "find_by_key" : [ ] or "find_by_key" : ~~
-				if (auto idx = x.find(claujson::_Value("find_by_key")); idx != claujson::StructuredPtr::npos) {
+				if (auto idx = x.find(_find_by_key); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_str()) {
-						FindByKey(x.as_object()->get_value_list(idx));
+						FindByKey(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else if (x.as_object()->get_value_list(idx).is_array()) {
-						FindByKey(x.as_object()->get_value_list(idx));
+						FindByKey(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else {
 						return;
 					}
 				}
 				// found "find_by_value" : [ ] or "find_by_value" : ~~
-				else if (auto idx = x.find(claujson::_Value("find_by_value")); idx != claujson::StructuredPtr::npos) {
+				else if (auto idx = x.find(_find_by_value); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_primitive()) {
-						FindBy_Value(x.as_object()->get_value_list(idx));
+						FindBy_Value(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else if (x.as_object()->get_value_list(idx).is_array()) {
-						FindBy_Value(x.as_object()->get_value_list(idx));
+						FindBy_Value(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else {
 						return;
 					}
 				}
 				// found "find" : [] or "find" : ~~
-				else if (auto idx = x.find(claujson::_Value("find")); idx != claujson::StructuredPtr::npos) {
+				else if (auto idx = x.find(_find); idx != claujson::StructuredPtr::npos) {
 					if (x.as_object()->get_value_list(idx).is_primitive()) {
 						if (x.as_object()->get_value_list(idx).is_str()) {
-							FindByKey(x.as_object()->get_value_list(idx));
+							FindByKey(x.as_object()->get_value_list(idx), d.GetAllocator());
 						}
-						FindBy_Value(x.as_object()->get_value_list(idx));
+						FindBy_Value(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else if (x.as_object()->get_value_list(idx).is_array()) {
-						FindByKey(x.as_object()->get_value_list(idx));
-						FindBy_Value(x.as_object()->get_value_list(idx));
+						FindByKey(x.as_object()->get_value_list(idx), d.GetAllocator());
+						FindBy_Value(x.as_object()->get_value_list(idx), d.GetAllocator());
 					}
 					else {
 						return;
@@ -479,7 +480,7 @@ protected:
 
 public:
 
-	LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
+	LangFrame(claujson::StructuredPtr* now, int* dataViewListCtrlNo,
 		long long *position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 		wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl,
 		wiz::SmartPtr2<claujson::StructuredPtr> global, int mode, wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, 
@@ -489,11 +490,11 @@ public:
 
 };
 
-LangFrame::LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
+LangFrame::LangFrame(claujson::StructuredPtr* now, int* dataViewListCtrlNo,
 	long long* position, wxDataViewListCtrl* m_dataViewListCtrl1, wxDataViewListCtrl* m_dataViewListCtrl2,
 	wxDataViewListCtrl* m_dataViewListCtrl3, wxDataViewListCtrl* m_dataViewListCtrl4, wxTextCtrl* textCtrl, wxTextCtrl* dirCtrl,
 	wiz::SmartPtr2<claujson::StructuredPtr> global, int mode, wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, 
-	const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style),
+	const wxSize& size, long style) : wxFrame(parent, id, title, pos, size, style), now(now),
 	ptr_dataViewListCtrlNo(dataViewListCtrlNo), ptr_position(position), textCtrl(textCtrl), global(global), mode(mode)
 {
 	m_dataViewListCtrl[0] = m_dataViewListCtrl1;
@@ -501,7 +502,6 @@ LangFrame::LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
 	m_dataViewListCtrl[2] = m_dataViewListCtrl3;
 	m_dataViewListCtrl[3] = m_dataViewListCtrl4;
 
-	this->now = now;
 	this->SetSizeHints(wxDefaultSize, wxDefaultSize);
 
 	wxBoxSizer* bSizer;
@@ -566,9 +566,8 @@ LangFrame::LangFrame(claujson::StructuredPtr now, int* dataViewListCtrlNo,
 LangFrame::~LangFrame()
 {
 	if (now) {
-		now.Delete();
+		now->Delete();
 	}
-
 	// Disconnect Events
 	m_code_run_button->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LangFrame::m_code_run_buttonOnButtonClick), NULL, this);
 
@@ -593,10 +592,14 @@ protected:
 		std::string val(Convert(val_text->GetValue()));
 
 		try {
-
+			static claujson::Document document_key = claujson::Document(4 * 1024);
+			static claujson::Document document_value = claujson::Document(4 * 1024);
+			
 			if (1 == type && !isStructuredPtr) { // change
-				claujson::_Value x = wiz::Parse(var);
-				claujson::_Value y = wiz::Parse(val);
+				wiz::Parse(var, document_key);
+				claujson::_Value& x = document_key.Get();
+				wiz::Parse(val, document_value);
+				claujson::_Value& y = document_value.Get();
 
 				if (!y) {
 					return; // error.
@@ -604,13 +607,13 @@ protected:
 
 				if (x && x.is_str() && ut.is_object() && y.is_primitive()) {
 					if (idx != -1) {
-						ut.change_key(idx, std::move(x));
-						ut.get_value_list(idx) = std::move(y);
+						ut.change_key(idx, x.clone(ut.get_pool()));
+						ut.get_value_list(idx) = y.clone(ut.get_pool());
 					}
 				}
 				else if (!x && ut.is_array() && y.is_primitive()) {
 					if (idx != -1) {
-						ut.get_value_list(idx) = std::move(y);
+						ut.get_value_list(idx) = y.clone(ut.get_pool());
 					}
 				}
 				else {
@@ -618,10 +621,10 @@ protected:
 				}
 			}
 			else if (1 == type) { // change && isStructuredPtr
-				claujson::_Value x = wiz::Parse(var);
-				
+				wiz::Parse(var, document_key);
+				claujson::_Value& x = document_key.Get();
 				if (x && x.is_str() && ut.is_object()) {
-					ut.change_key(idx, std::move(x));
+					ut.change_key(idx, x.clone(ut.get_pool()));
 				}
 				else if (x && ut.is_array()) {
 					return;
@@ -633,18 +636,20 @@ protected:
 					return; 
 				}
 
-				claujson::_Value x = wiz::Parse(var); // error vs empty? - todo!
-				claujson::_Value y = wiz::Parse(val);
-				
+				wiz::Parse(var, document_key);
+				claujson::_Value& x = document_key.Get();
+				wiz::Parse(val, document_value);
+				claujson::_Value& y = document_value.Get();
+
 				if (!y) {// ROOT as NONE
 					return; // error
 				}
 
 				if (x.is_str() && ut.is_object()) {
-					ut.add_object_element(std::move(x), std::move(y));
+					ut.add_object_element(x.clone(ut.get_pool()), y.clone(ut.get_pool()));
 				}
 				else if (!x && (ut.is_array() || (ut.get_parent() == nullptr && ut.empty()))) {
-					ut.add_array_element(std::move(y));
+					ut.add_array_element(y.clone(ut.get_pool()));
 				}
 				else {
 					return; // error
@@ -738,12 +743,16 @@ private:
 
 	wxString text_ctrl_backup; // compare new text_ctrl data ? + refresh !
 
+	inline static claujson::_Value _str_op = claujson::_Value(&wiz::const_str_pool, "op"sv);
 private:
+	claujson::Arena pool_for_diff = claujson::Arena(1024 * 1024);
 
 	// json1 <- original, json2 <- target.
 	int checkDiff(const std::string& origin_text, const std::string& target_text, claujson::_Value* diff, bool hint) {
 		// parse json1, json2
-		claujson::Document json1, json2;
+		static claujson::Document json1 = claujson::Document(1024 * 1024);
+		static claujson::Document json2 = claujson::Document(1024 * 1024);
+
 		if (wiz::p.parse_str(origin_text, json1, 1).first == 0) {
 			return 0;
 		}
@@ -753,15 +762,14 @@ private:
 		}
 
 		// diff
-		claujson::_Value _diff = claujson::diff(json1.Get(), json2.Get());
+		claujson::_Value _diff = claujson::diff(&pool_for_diff, json1.Get(), json2.Get());
 		int valid = _diff.is_valid() && _diff.as_structured_ptr() && _diff.as_array()->empty() == false;
 		
-
+		// hint <- size > 256 ? 
 		if (hint && valid) {
-			claujson::_Value key("op"sv);
 			auto x = _diff.as_array();
 			for (int64_t i = 0; x && i < x->get_data_size(); ++i) {
-				auto idx = x->get_value_list(i).as_object()->find(key);
+				auto idx = x->get_value_list(i).as_object()->find(_str_op);
 				// != replace // add, remove, replace..
 				if (!(x->get_value_list(i).as_object()->get_value_list(idx).get_string() == "replace"sv)) {
 					valid = 0;
@@ -769,7 +777,7 @@ private:
 				}
 			}
 		}
-		
+
 		*diff = std::move(_diff);
 
 		//claujson::save_parallel("test.json", *diff, 0, true); // debug
@@ -909,7 +917,7 @@ private:
 
 		hint = false;
 
-		//dir_vec.push_back(".");
+		dir_vec.push_back(".");
 		position = -1;
 		dataViewListCtrlNo = -1;
 
@@ -921,7 +929,7 @@ private:
 	
 		*changed = false;
 	}
-	void RefreshTable(claujson::StructuredPtr now)
+	void RefreshTable(claujson::StructuredPtr now, bool chk = true)
 	{
 		m_dataViewListCtrl1->DeleteAllItems();
 		m_dataViewListCtrl2->DeleteAllItems();
@@ -929,6 +937,10 @@ private:
 		m_dataViewListCtrl4->DeleteAllItems();
 
 		AddData(now, (part.back()) * part_size);
+
+		if (chk == false) {
+			return;
+		}
 
 		dataViewListCtrlNo = -1;
 		position = -1;
@@ -1192,10 +1204,11 @@ protected:
 			wxString _fileName = openFileDialog->GetPath();
 			std::string fileName(_fileName.c_str());
 
-			claujson::Document d;
+			static claujson::Document d;
 
 			count++;
 
+			d.GetAllocator()->Clear();
 
 			if (auto x = wiz::p.parse(fileName, d, 0); x.first) {
 				claujson::_Value& ut = d.Get();
@@ -1245,7 +1258,7 @@ protected:
 			run_count = 0;
 
 			dir_vec = std::vector<std::string>();
-			//dir_vec.push_back(".");
+			dir_vec.push_back(".");
 
 			dir_text->ChangeValue(wxT(""));
 
@@ -1315,6 +1328,10 @@ protected:
 	
 	virtual void FileSaveMenuOnMenuSelection(wxCommandEvent& event) {
 		if (!isMain) { return; }
+		static claujson::Document d;
+		
+		d.GetAllocator()->Clear();
+
 		wxFileDialog* saveFileDialog = new wxFileDialog(this, _("Save"), "", "",
 			"", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
@@ -1325,55 +1342,14 @@ protected:
 				claujson::Array* arr = nullptr;
 				claujson::Object* obj = nullptr;
 				claujson::_Value x(global->get_value_list(0).as_structured_ptr());
+
+				wiz::w.write_parallel3(d.GetAllocator(), fileName, x, 0, true);
 				
-				if (x.is_array()) {
-					arr = x.as_array();
-					claujson::Array* temp = new claujson::Array();
-
-					for (int64_t i = 0; i < arr->get_data_size(); ++i) {
-						temp->add_element(std::move(arr->get_value_list(i)));
-					}
-
-					claujson::_Value temp_value = claujson::_Value(temp);
-
-					wiz::w.write_parallel(fileName, temp_value, 0, true);
-					
-					arr->clear();
-
-					for (int64_t i = 0; i < temp->get_data_size(); ++i) {
-						arr->add_element(std::move(temp->get_value_list(i)));
-					}
-
-					delete temp;
-				}
-				else if (x.is_object()) {
-					obj = x.as_object();
-					claujson::Object* temp = new claujson::Object();
-
-					for (int64_t i = 0; i < obj->get_data_size(); ++i) {
-						temp->add_element(obj->get_const_key_list(i).clone(), std::move(obj->get_value_list(i)));
-					}
-
-					claujson::_Value temp_value = claujson::_Value(temp);
-
-					wiz::w.write_parallel(fileName, temp_value, 0, true);
-
-					obj->clear();
-
-					for (int64_t i = 0; i < temp->get_data_size(); ++i) {
-						obj->add_element(temp->get_const_key_list(i).clone(), std::move(temp->get_value_list(i)));
-					}
-
-					delete temp;
-				}
-				else {
-					wiz::w.write_parallel(fileName, x, 0, true);
-				}
 				m_code_run_result->SetLabelText(saveFileDialog->GetPath() + wxT(" is saved.."));
 			}
 			else { // mode == 1
 				if (global->empty() == false) {
-					claujson::_Value x(global->get_value_list(0).clone());
+					claujson::_Value x(global->get_value_list(0).clone(d.GetAllocator()));
 					wiz::w.write(fileName, x);
 					m_code_run_result->SetLabelText(saveFileDialog->GetPath() + wxT(" is saved.."));
 				}
@@ -1478,6 +1454,25 @@ protected:
 	}
 	virtual void refresh_buttonOnButtonClick(wxCommandEvent& event) {
 		auto real_position = position;
+		auto real_dataViewListCtrlNo = dataViewListCtrlNo;
+		auto start_dataViewListCtrlNo = 0;
+
+		{
+			wxDataViewListCtrl* ctrl[4];
+			ctrl[0] = m_dataViewListCtrl1;
+			ctrl[1] = m_dataViewListCtrl2;
+			ctrl[2] = m_dataViewListCtrl3;
+			ctrl[3] = m_dataViewListCtrl4;
+
+			for (int i = 0; i < 4; ++i) {
+				if (ctrl[i]->GetItemCount() > 0) {
+					start_dataViewListCtrlNo = i;
+					position = 0;
+					break;
+				}
+			}
+		}
+
 
 		if (*changed) {
 			changedEvent();
@@ -1506,7 +1501,7 @@ protected:
 				dir_vec.clear(); // .pop_back();
 				//}
 				
-				dir = "";  now = *global; part.push_back(0);
+				dir = ".";  now = *global; part.push_back(0);
 				
 				for (int i = 0; i < dir_vec_backup.size(); ++i) {
 
@@ -1555,7 +1550,6 @@ protected:
 			RefreshText(now);
 			RefreshTable(now);
 
-
 			{ // diff and patch...	
 				wxDataViewListCtrl* ctrl[4];
 				ctrl[0] = m_dataViewListCtrl1;
@@ -1566,18 +1560,17 @@ protected:
 				long long start = 0;
 				claujson::_Value diff;
 
-				if (real_position == 0 && text_ctrl_backup.empty() == false &&
+				if (real_position == 0 && real_dataViewListCtrlNo == start_dataViewListCtrlNo && text_ctrl_backup.empty() == false &&
 					0 != checkDiff(MakeCompleteJsonText(now, start, Convert(textCtrl->GetValue())), 
 									MakeCompleteJsonText(now, start, Convert(text_ctrl_backup)), &diff, hint)) {
 					// patch to now.. using diff..
 					claujson::_Value temp(now);
-					claujson::patch(temp, diff);
+					claujson::patch(now.get_pool(), temp, diff);
 
 
 					// refresh_table(...)
 					{
-						dataViewListCtrlNo = dataViewListCtrlNo - 1;
-						if (dataViewListCtrlNo < 0) {
+						{
 							wxDataViewListCtrl* ctrl[4];
 							ctrl[0] = m_dataViewListCtrl1;
 							ctrl[1] = m_dataViewListCtrl2;
@@ -1589,7 +1582,8 @@ protected:
 									dataViewListCtrlNo = i;
 									position = 0;
 
-									claujson::clean(diff);
+									//claujson::clean(diff);
+									pool_for_diff.Clear();
 
 									textCtrl->ChangeValue(Convert(wiz::ToStringEx(now, start, hint)));
 
@@ -1603,18 +1597,14 @@ protected:
 							return; // 
 						}
 					}
-					claujson::clean(diff);
-
-					textCtrl->ChangeValue(Convert(wiz::ToStringEx(now, start, hint)));
-
-					RefreshText(now);
-					RefreshTable(now);
-					text_ctrl_backup = textCtrl->GetValue();
-
 					return;
 				}
+			//	claujson::clean(diff);
 
-				claujson::clean(diff);
+				RefreshText(now);
+				RefreshTable(now);
+				text_ctrl_backup = textCtrl->GetValue(); //
+				pool_for_diff.Clear();
 			}
 		}
 	}
@@ -2375,7 +2365,7 @@ protected:
 			return;
 		}
 
-		LangFrame* frame = new LangFrame(this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
+		LangFrame* frame = new LangFrame(&this->now, &dataViewListCtrlNo, &position, m_dataViewListCtrl1, m_dataViewListCtrl2,
 			m_dataViewListCtrl3, m_dataViewListCtrl4, textCtrl, dir_text, this->global, mode, this);
 		
 		frame->Show(true);
@@ -2396,9 +2386,10 @@ public:
 		const wxSize& size = wxSize(1024, 512), long style = wxDEFAULT_FRAME_STYLE | wxTAB_TRAVERSAL);
 
 	void FirstFrame() {
+		static claujson::Arena pool;
 		isMain = true;
 		mode = 1;
-		global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(new claujson::Array()));
+		global = wiz::SmartPtr2<claujson::StructuredPtr>(new claujson::StructuredPtr(claujson::Array::Make(&pool)));
 		now = *global;
 	}
 
@@ -2416,19 +2407,18 @@ public:
 			while (true) {
 				if (auto idx = str.find('/', start); idx != std::string::npos) {
 					start = idx + 1;
-					end = idx;
+					begin = start;
+					end = str.find('/', start);
 
 					if (begin >= 0 && begin < end) {
-						if (str[begin] != '{' && str[begin] != '[') {
+						if (str[begin] != '{' && str[begin] != '[' && str[begin] != '.') {
 							return {};
 						}
 						result.push_back(str.substr(begin, end - begin));
-						if (end > 0 && (str[end - 1] != '}' && str[end - 1] != ']')) {
+						if (end > 0 && (str[end - 1] != '}' && str[end - 1] != ']' && str[end - 1] != '.')) {
 							return {};
 						}
-					}
-
-					begin = idx + 1;
+					};
 				}
 				else {
 					break;

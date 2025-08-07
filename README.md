@@ -12,7 +12,7 @@ https://github.com/claujson/claujson MIT License
 # Using Other Repository...
 https://github.com/microsoft/mimalloc MIT License
 
-# scj3 MIT License
+# claujson/claujson MIT License
 MIT License
 
 Copyright (c) 2022-2025 vztpv

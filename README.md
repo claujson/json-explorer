@@ -7,7 +7,7 @@ with wxWidgets
 ![alt text](aa3.png) 
 
 # Using my proj
-https://github.com/vztpv/scj3 MIT License
+https://github.com/claujson/claujson MIT License
 
 # Using Other Repository...
 https://github.com/microsoft/mimalloc MIT License

@@ -6,7 +6,7 @@
 #endif
 
 
-//#include "mimalloc-new-delete.h"
+#include "mimalloc-new-delete.h"
 
 #include <string>
 #include <algorithm>
@@ -2760,5 +2760,6 @@ public:
 };
 
 IMPLEMENT_APP(TestApp)
+
 
 

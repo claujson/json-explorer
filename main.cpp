@@ -5,6 +5,7 @@
 
 #endif
 
+#define WXUSINGDLL
 
 #include "mimalloc-new-delete.h"
 
@@ -505,7 +506,7 @@ LangFrame::LangFrame(claujson::StructuredPtr* now, int* dataViewListCtrlNo,
 
 	m_code = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, wxEmptyString);
 	m_code->SetText(wxString(wxT(
-		"\"ClauJson Explorer \"\n\"#		 vztpv@naver.com\"\n"), wxConvUTF8));
+		"\"ClauJson Explorer \"\n\"#		 vztpv@naver.com\"\n")));
 	m_code->SetUseTabs(true);
 	m_code->SetTabWidth(4);
 	m_code->SetIndent(4);
@@ -1236,11 +1237,11 @@ protected:
 					//global = wiz::SmartPtr2<claujson::StructuredPtr>(ut.as_structured_ptr());
 				}
 				
-				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Success! file is UTF-8"));
+				m_code_run_result->ChangeValue(wxString(temp.c_str()) + wxT("Load Success! file is UTF-8"));
 			}
 			else {
 				std::string temp = std::to_string(count);
-				m_code_run_result->ChangeValue(wxString::FromUTF8(temp.c_str()) + wxT("Load Failed!"));
+				m_code_run_result->ChangeValue(wxString(temp.c_str()) + wxT("Load Failed!"));
 			}
 
 			now = *global;

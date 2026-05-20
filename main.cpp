@@ -50,13 +50,15 @@
 
 namespace wiz {
 
-	claujson::parser p;
-	claujson::writer w;
+	static claujson::parser p;
+	static claujson::parser p_temp;
+	static claujson::writer w;
 
 
 	[[nodisgard]]
 	bool Parse(const std::string& str, claujson::Document& d) {
-		return p.parse_str(str, d, 1).first;
+		bool use_heap_string = true;
+		return p_temp.parse_str(str, d, 1, use_heap_string).first;
 	}
 
 	std::string ToString(const claujson::_Value& data) {
@@ -71,6 +73,7 @@ namespace wiz {
 		switch (data.type()) {
 		case claujson::_ValueType::STRING:
 		case claujson::_ValueType::SHORT_STRING:
+		case claujson::_ValueType::STRING_VIEW:
 			result += "\"";
 			result += data.get_string().get_std_string(err);
 			result += "\"";
@@ -415,7 +418,7 @@ protected:
 				jsonText += tempStr;
 			}
 			jsonText += " ] ";
-			bool valid = wiz::p.parse_str(jsonText, query, 1).first; // 2? 3? 4? - # of thread.
+			bool valid = wiz::p_temp.parse_str(jsonText, query, 1, true).first; // 2? 3? 4? - # of thread.
 			if (!valid) {
 				return;
 			}
@@ -749,10 +752,10 @@ private:
 		claujson::Document json1;
 		claujson::Document json2;
 
-		if (wiz::p.parse_str(origin_text, json1, 1).first == 0) {
+		if (wiz::p_temp.parse_str(origin_text, json1, 1, true).first == 0) {
 			return 0;
 		}
-		if (wiz::p.parse_str(target_text, json2, 1).first == 0) {
+		if (wiz::p_temp.parse_str(target_text, json2, 1, true).first == 0) {
 			//claujson::clean(json1);
 			return 0;
 		}
@@ -1204,7 +1207,7 @@ protected:
 
 			count++;
 
-			if (auto x = wiz::p.parse(fileName, d, 0); x.first) {
+			if (auto x = wiz::p.parse(fileName, d, 0, false); x.first) {
 				claujson::_Value& ut = d.Get();
 
 				encoding = Encoding::UTF8;

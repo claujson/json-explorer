@@ -7,7 +7,6 @@
 
 #define WXUSINGDLL
 
-#include "mimalloc-new-delete.h"
 
 #include <string>
 #include <algorithm>
@@ -17,12 +16,10 @@
 
 #include "smart_ptr.h"
 
-
 #include <utility>
 
 //
 //
-
 #define __WXMSW__
 
 #include <wx/wx.h>
@@ -48,14 +45,18 @@
 #include <wx/frame.h>
 
 
+
+
+
 namespace wiz {
 
 	static claujson::parser p;
 	static claujson::parser p_temp;
 	static claujson::writer w;
+	static claujson::Document d;
 
 
-	[[nodisgard]]
+	[[nodiscard]]
 	bool Parse(const std::string& str, claujson::Document& d) {
 		bool use_heap_string = true;
 		return p_temp.parse_str(str, d, 1, use_heap_string).first;
@@ -187,27 +188,15 @@ Encoding encoding = Encoding::UTF8;
 //auto default_cp = GetConsoleCP();
 
 inline std::string Convert(const wxString& str) {
-	if (Encoding::UTF8 == encoding) {
-		return str.ToUTF8().data();
-	}
-	else {
-		return str.ToStdString();
-	}
+	return str.ToStdString(wxConvUTF8);
 }
+
 inline std::string Convert(wxString&& str) {
-	if (Encoding::UTF8 == encoding) {
-		return str.ToUTF8().data();
-	}
-	else {
-		return str.ToStdString();
-	}
+	return str.ToStdString(wxConvUTF8);
 }
 
 wxString Convert(const std::string& str) {
 	if (Encoding::UTF8 == encoding) {
-
-
-
 		return wxString(str.c_str(), wxConvUTF8);
 	}
 	else {
@@ -379,11 +368,11 @@ protected:
 			if (now) {
 				now->Delete();
 			}
-			claujson::_Value temp = claujson::Array::Make();
-			(*now) = temp.as_array();
 			if (now == nullptr) {
 				return;
 			}
+			claujson::_Value temp = claujson::Array::Make();
+			(*now) = temp.as_array();
 
 			wxString wxNDJsonText = m_code->GetValue();
 			std::string ndJsonText = Convert(wxNDJsonText);
@@ -986,9 +975,9 @@ private:
 
 			wxVector<wxVariant> value;
 
-			int i = 0;
+			int i = start;
 
-			for ( ; i < size_per_unit; ++i) {
+			for ( ; i < start + size_per_unit; ++i) {
 				value.clear();
 
 				if (global.get_value_list(i).is_structured()) {
@@ -1023,7 +1012,7 @@ private:
 				m_dataViewListCtrl1->AppendItem(value);
 				count++;
 			}
-			for ( ; i < size_per_unit * 2; ++i) {
+			for ( ; i < start + size_per_unit * 2; ++i) {
 				value.clear();
 
 				if (global.get_value_list(i).is_structured()) {
@@ -1059,7 +1048,7 @@ private:
 				m_dataViewListCtrl2->AppendItem(value);
 				count++;
 			}
-			for ( ; i < size_per_unit * 3; ++i) {
+			for ( ; i < start + size_per_unit * 3; ++i) {
 				value.clear();
 				if (global.get_value_list(i).is_structured()) {
 					if (wiz::ToString(global.get_const_key_list(i)).empty()) {
@@ -1094,7 +1083,7 @@ private:
 				m_dataViewListCtrl3->AppendItem(value);
 				count++;
 			}
-			for ( ; i < last_size; ++i) {
+			for ( ; i < start + last_size; ++i) {
 				value.clear();
 
 				if (global.get_value_list(i).is_structured()) {
@@ -1203,12 +1192,10 @@ protected:
 			wxString _fileName = openFileDialog->GetPath();
 			std::string fileName(_fileName.c_str());
 
-			static claujson::Document d;
-
 			count++;
 
-			if (auto x = wiz::p.parse(fileName, d, 0, false); x.first) {
-				claujson::_Value& ut = d.Get();
+			if (auto x = wiz::p.parse(fileName, wiz::d, 0, false); x.first) {
+				claujson::_Value& ut = wiz::d.Get();
 
 				encoding = Encoding::UTF8;
 
@@ -1815,7 +1802,7 @@ protected:
 			
 			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size)
 				)  + "}" :
-				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size) + (length) / 4 * 2 + part.back() * part_size)  + "]"), part);
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 2 + part.back() * part_size)) + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);
@@ -1901,7 +1888,7 @@ protected:
 
 
 			EnterDir(wiz::ToString(claujson::_Value(now)) + (now.get_parent().is_object() ? "{" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "}" :
-				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size) + (length) / 4 * 3 + part.back() * part_size)  + "]"), part);
+				"[" + std::to_string(wiz::GetIdx(now, position, (length) / 4 * 3 + part.back() * part_size))  + "]"), part);
 
 			RefreshText(now);
 			RefreshTable(now);

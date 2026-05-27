@@ -5,8 +5,9 @@
 
 #endif
 
-#define WXUSINGDLL
+//#define WXUSINGDLL
 
+#include "mimalloc-new-delete.h"
 
 #include <string>
 #include <algorithm>
@@ -200,6 +201,8 @@ wxString Convert(const std::string& str) {
 		return wxString(str.c_str(), wxConvUTF8);
 	}
 	else {
+		return wxString();
+		/*
 		//?
 		wxString temp(str.c_str(), wxCSConv(wxFONTENCODING_SYSTEM));
 
@@ -208,6 +211,7 @@ wxString Convert(const std::string& str) {
 		}
 
 		return temp;
+		*/
 	}
 }
 wxString Convert(std::string&& str) {
@@ -215,14 +219,7 @@ wxString Convert(std::string&& str) {
 		return wxString(str.c_str(), wxConvUTF8);
 	}
 	else {
-
-		wxString temp(str.c_str(), wxCSConv(wxFONTENCODING_SYSTEM));
-
-		if (!str.empty() && temp.empty()) {
-			temp = wxString(str.c_str(), wxConvISO8859_1);
-		}
-
-		return temp;
+		return wxString();
 	}
 }
 

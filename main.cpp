@@ -60,7 +60,7 @@ namespace wiz {
 	[[nodiscard]]
 	bool Parse(const std::string& str, claujson::Document& d) {
 		bool use_heap_string = true;
-		return p_temp.parse_str(str, d, 1, use_heap_string).first;
+		return p_temp.parse_str(str, d, 1, !use_heap_string).first;
 	}
 
 	std::string ToString(const claujson::_Value& data) {
@@ -404,7 +404,7 @@ protected:
 				jsonText += tempStr;
 			}
 			jsonText += " ] ";
-			bool valid = wiz::p_temp.parse_str(jsonText, query, 1, true).first; // 2? 3? 4? - # of thread.
+			bool valid = wiz::p_temp.parse_str(jsonText, query, 1, false).first; // 2? 3? 4? - # of thread.
 			if (!valid) {
 				return;
 			}
@@ -738,10 +738,10 @@ private:
 		claujson::Document json1;
 		claujson::Document json2;
 
-		if (wiz::p_temp.parse_str(origin_text, json1, 1, true).first == 0) {
+		if (wiz::p_temp.parse_str(origin_text, json1, 1, false).first == 0) {
 			return 0;
 		}
-		if (wiz::p_temp.parse_str(target_text, json2, 1, true).first == 0) {
+		if (wiz::p_temp.parse_str(target_text, json2, 1, false).first == 0) {
 			//claujson::clean(json1);
 			return 0;
 		}

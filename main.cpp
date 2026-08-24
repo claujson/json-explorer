@@ -21,7 +21,7 @@
 
 //
 //
-//#define __WXMSW__
+#define __WXMSW__
 
 #include <wx/wx.h>
 
@@ -60,13 +60,13 @@ namespace wiz {
 	[[nodiscard]]
 	bool Parse(const std::string& str, claujson::Document& d) {
 		bool use_heap_string = true;
-		return p_temp.parse_str(str, d, 1, !use_heap_string).first;
+		return p_temp.parse_str(str, d, 1, use_heap_string).first;
 	}
 
 	std::string ToString(const claujson::_Value& data) {
 		std::string result;
 
-		if (!data) { // key <- from array?
+		if (!data.is_valid()) { // key <- from array?
 			return "";
 		}
 
@@ -286,14 +286,14 @@ protected:
 		for (uint64_t i = 0; i < sz; ++i) {
 			if (key.is_str()) {
 				// found key...
-				if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.get_string()) {
+				if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key.is_str() && x_key.get_string() == key.get_string()) {
 					AddNow(dirVec);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
-					if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key && x_key.get_string() == key.as_array()->get_value_list(j).get_string()) {
+					if (const auto& x_key = x.as_structured_ptr().get_key_list(i); x_key.is_str() && x_key.get_string() == key.as_array()->get_value_list(j).get_string()) {
 						AddNow(dirVec);
 						break;
 					}
@@ -320,14 +320,14 @@ protected:
 			// found key...
 			if (key.is_primitive()) {
 				// found key...
-				if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key) {
+				if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value.is_string() && x_value == key) {
 					AddNow(dirVec);
 				}
 			}
 			else if (key.is_array()) {
 				auto sz = key.as_array()->get_data_size();
 				for (uint64_t j = 0; j < sz; ++j) {
-					if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value && x_value == key.as_array()->get_value_list(j)) {
+					if (const auto& x_value = x.as_structured_ptr().get_value_list(i); x_value.is_string() && x_value == key.as_array()->get_value_list(j)) {
 						AddNow(dirVec);
 						break;
 					}
@@ -404,7 +404,7 @@ protected:
 				jsonText += tempStr;
 			}
 			jsonText += " ] ";
-			bool valid = wiz::p_temp.parse_str(jsonText, query, 1, false).first; // 2? 3? 4? - # of thread.
+			bool valid = wiz::p_temp.parse_str(jsonText, query, 1, true).first; // 2? 3? 4? - # of thread.
 			if (!valid) {
 				return;
 			}
@@ -582,22 +582,22 @@ protected:
 			claujson::Document document_value;
 			
 			if (1 == type && !isStructuredPtr) { // change
-				wiz::Parse(var, document_key);
+				bool pass_key = wiz::Parse(var, document_key);
 				claujson::_Value& x = document_key.Get();
-				wiz::Parse(val, document_value);
+				bool pass_value = wiz::Parse(val, document_value);
 				claujson::_Value& y = document_value.Get();
 
-				if (!y) {
+				if (!pass_value) {
 					return; // error.
 				}
 
-				if (x && x.is_str() && ut.is_object() && y.is_primitive()) {
+				if (pass_key && x.is_str() && ut.is_object() && y.is_primitive()) {
 					if (idx != -1) {
 						ut.change_key(idx, std::move(x));
 						ut.get_value_list(idx) = std::move(y);
 					}
 				}
-				else if (!x && ut.is_array() && y.is_primitive()) {
+				else if (!pass_key && ut.is_array() && y.is_primitive()) {
 					if (idx != -1) {
 						ut.get_value_list(idx) = std::move(y);
 					}
@@ -607,12 +607,12 @@ protected:
 				}
 			}
 			else if (1 == type) { // change && isStructuredPtr
-				wiz::Parse(var, document_key);
+				bool pass_key = wiz::Parse(var, document_key);
 				claujson::_Value& x = document_key.Get();
-				if (x && x.is_str() && ut.is_object()) {
+				if (pass_key && x.is_str() && ut.is_object()) {
 					ut.change_key(idx, std::move(x));
 				}
-				else if (x && ut.is_array()) {
+				else if (pass_key && ut.is_array()) {
 					return;
 				}
 			}
@@ -622,19 +622,19 @@ protected:
 					return; 
 				}
 
-				wiz::Parse(var, document_key);
+				bool pass_key = wiz::Parse(var, document_key);
 				claujson::_Value& x = document_key.Get();
-				wiz::Parse(val, document_value);
+				bool pass_value = wiz::Parse(val, document_value);
 				claujson::_Value& y = document_value.Get();
 
-				if (!y) {// ROOT as NONE
+				if (!pass_value) {// ROOT as NONE
 					return; // error
 				}
 
-				if (x.is_str() && ut.is_object()) {
+				if (pass_key && x.is_str() && ut.is_object()) {
 					ut.add_object_element(std::move(x), std::move(y));
 				}
-				else if (!x && (ut.is_array() || (ut.get_parent() == nullptr && ut.empty()))) {
+				else if (!pass_key && (ut.is_array() || (ut.get_parent() == nullptr && ut.empty()))) {
 					ut.add_array_element(std::move(y));
 				}
 				else {
@@ -738,10 +738,10 @@ private:
 		claujson::Document json1;
 		claujson::Document json2;
 
-		if (wiz::p_temp.parse_str(origin_text, json1, 1, false).first == 0) {
+		if (wiz::p_temp.parse_str(origin_text, json1, 1, true).first == 0) {
 			return 0;
 		}
-		if (wiz::p_temp.parse_str(target_text, json2, 1, false).first == 0) {
+		if (wiz::p_temp.parse_str(target_text, json2, 1, true).first == 0) {
 			//claujson::clean(json1);
 			return 0;
 		}

@@ -60,7 +60,7 @@ namespace wiz {
 	[[nodiscard]]
 	bool Parse(const std::string& str, claujson::Document& d) {
 		bool use_heap_string = true;
-		return p_temp.parse_str(str, d, 1, use_heap_string).first;
+		return p_temp.parse_str(str, d, 1, !use_heap_string).first;
 	}
 
 	std::string ToString(const claujson::_Value& data) {

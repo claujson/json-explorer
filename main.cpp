@@ -21,7 +21,7 @@
 
 //
 //
-#define __WXMSW__
+//#define __WXMSW__
 
 #include <wx/wx.h>
 
